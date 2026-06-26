@@ -1,0 +1,21 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
+  background: #0F0F1E;
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+:root {
+  --red: #E4002B;
+  --red-bg: rgba(228,0,43,.12);
+  --teal: #00856A;
+  --teal-bg: rgba(0,133,106,.12);
+  --gold: #D4AF37;
+  --gold-bg: rgba(212,175,55,.12);
+  --card: #1A1A2E;
+  --card2: #232340;
+  --w80: rgba(255,255,255,.8);
+  --w60: rgba(255,255,255,.6);
+  --w40: rgba(255,255,255,.4);
+  --w20: rgba(255,255,255,.2);
+}
