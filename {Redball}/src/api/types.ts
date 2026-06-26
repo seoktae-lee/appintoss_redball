@@ -43,6 +43,7 @@ export interface Scenario {
   group: string;
   match: { home: string; away: string; date: string; status: string };
   conditions: string[];
+  probabilities?: { homeWin: number; draw: number; awayWin: number };
   impact: "must_watch" | "helpful" | "dangerous";
 }
 

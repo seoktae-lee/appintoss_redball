@@ -192,6 +192,21 @@ export function QualifyTab({ data }: Props) {
                     <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{awayTeam?.name || sc.match.away}</span>
                   </div>
                 </div>
+                {/* ELO 기반 예상 확률 바 */}
+                {sc.probabilities && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 6 }}>
+                      <div style={{ width: `${sc.probabilities.homeWin}%`, background: "#E4002B" }} />
+                      <div style={{ width: `${sc.probabilities.draw}%`, background: "rgba(255,255,255,.3)" }} />
+                      <div style={{ width: `${sc.probabilities.awayWin}%`, background: "#0033A0" }} />
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11 }}>
+                      <span style={{ color: "#E4002B", fontWeight: 600 }}>{homeTeam?.name} {sc.probabilities.homeWin}%</span>
+                      <span style={{ color: "rgba(255,255,255,.4)" }}>무 {sc.probabilities.draw}%</span>
+                      <span style={{ color: "#5577CC", fontWeight: 600 }}>{awayTeam?.name} {sc.probabilities.awayWin}%</span>
+                    </div>
+                  </div>
+                )}
                 {sc.conditions.map((cond, ci) => (
                   <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 4 }}>
                     {(() => {

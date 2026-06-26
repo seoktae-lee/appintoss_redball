@@ -1,10 +1,12 @@
 import { TEAMS, KOREA_CODE, type MatchResult } from "../data/worldcup2026";
 import { calcAllGroupStandings, getThirdPlaceTable } from "./standings";
+import { getElo, eloToProbs } from "../data/elo-ratings";
 
 export interface Scenario {
   group: string;
   match: { home: string; away: string; date: string; status: string };
   conditions: string[];
+  probabilities?: { homeWin: number; draw: number; awayWin: number };
   impact: "must_watch" | "helpful" | "dangerous";
 }
 
@@ -134,10 +136,17 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
       : hasDanger ? "dangerous" as const
       : "helpful" as const;
 
+    const probs = eloToProbs(getElo(match.homeTeam), getElo(match.awayTeam));
+
     scenarios.push({
       group: match.group,
       match: { home: match.homeTeam, away: match.awayTeam, date: match.date, status: match.status },
       conditions,
+      probabilities: {
+        homeWin: Math.round(probs.homeWin * 100),
+        draw: Math.round(probs.draw * 100),
+        awayWin: Math.round(probs.awayWin * 100),
+      },
       impact,
     });
   }
