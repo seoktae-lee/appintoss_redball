@@ -79,53 +79,41 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
       continue;
     }
 
-    const bestRank = Math.min(...allRanks);
-    const worstRank = Math.max(...allRanks);
     const conditions: string[] = [];
 
-    // 홈 승리
-    if (homeWinRanks.length > 0) {
-      const best = Math.min(...homeWinRanks);
-      const worst = Math.max(...homeWinRanks);
-      if (worst <= 8 && best < currentRank) {
-        conditions.push(`✅ ${homeName} 승리 → 한국 ${best}위로 상승`);
-      } else if (worst <= 8) {
-        conditions.push(`✅ ${homeName} 승리 → 한국 진출 유지`);
-      } else if (best <= 8) {
-        conditions.push(`⚠️ ${homeName} 승리 시 다른 경기 결과에 따라 다름`);
-      } else {
-        conditions.push(`❌ ${homeName} 승리 시 불리 (한국 최대 ${worst}위)`);
+    function describeOutcome(name: string, ranks: number[]): string {
+      if (ranks.length === 0) return "";
+      const best = Math.min(...ranks);
+      const worst = Math.max(...ranks);
+      const rankStr = best === worst ? `${best}위` : `${best}~${worst}위`;
+
+      if (worst > 8) {
+        if (best > 8) return `❌ ${name} → 한국 ${rankStr} (진출 위험)`;
+        return `⚠️ ${name} → 한국 ${rankStr} (결과에 따라 탈락 가능)`;
       }
+      if (best < currentRank) return `✅ ${name} → 한국 ${rankStr} (유리)`;
+      if (worst > currentRank) return `⚠️ ${name} → 한국 ${rankStr}`;
+      return `✅ ${name} → 한국 ${rankStr} 유지`;
     }
 
-    // 무승부
-    if (drawRanks.length > 0) {
-      const best = Math.min(...drawRanks);
-      const worst = Math.max(...drawRanks);
-      if (worst <= 8 && best < currentRank) {
-        conditions.push(`✅ 무승부 → 한국 ${best}위로 상승`);
-      } else if (worst <= 8) {
-        conditions.push(`✅ 무승부 → 한국 진출 유지`);
-      } else if (best <= 8) {
-        conditions.push(`⚠️ 무승부 시 다른 경기 결과에 따라 다름`);
-      } else {
-        conditions.push(`❌ 무승부 시 불리 (한국 최대 ${worst}위)`);
-      }
-    }
+    const homeDesc = describeOutcome(`${homeName} 승리`, homeWinRanks);
+    const drawDesc = describeOutcome("무승부", drawRanks);
+    const awayDesc = describeOutcome(`${awayName} 승리`, awayWinRanks);
 
-    // 원정 승리
-    if (awayWinRanks.length > 0) {
-      const best = Math.min(...awayWinRanks);
-      const worst = Math.max(...awayWinRanks);
-      if (worst <= 8 && best < currentRank) {
-        conditions.push(`✅ ${awayName} 승리 → 한국 ${best}위로 상승`);
-      } else if (worst <= 8) {
-        conditions.push(`✅ ${awayName} 승리 → 한국 진출 유지`);
-      } else if (best <= 8) {
-        conditions.push(`⚠️ ${awayName} 승리 시 다른 경기 결과에 따라 다름`);
-      } else {
-        conditions.push(`❌ ${awayName} 승리 시 불리 (한국 최대 ${worst}위)`);
-      }
+    if (homeDesc) conditions.push(homeDesc);
+    if (drawDesc) conditions.push(drawDesc);
+    if (awayDesc) conditions.push(awayDesc);
+
+    // 가장 유리한 결과 표시
+    const allResults = [
+      { label: `${homeName} 승리`, best: homeWinRanks.length > 0 ? Math.min(...homeWinRanks) : 99 },
+      { label: "무승부", best: drawRanks.length > 0 ? Math.min(...drawRanks) : 99 },
+      { label: `${awayName} 승리`, best: awayWinRanks.length > 0 ? Math.min(...awayWinRanks) : 99 },
+    ];
+    const bestResult = allResults.reduce((a, b) => a.best <= b.best ? a : b);
+    const worstResult = allResults.reduce((a, b) => a.best >= b.best ? a : b);
+    if (bestResult.best !== worstResult.best) {
+      conditions.push(`💡 ${bestResult.label}가 한국에 가장 유리`);
     }
 
     if (conditions.length === 0) continue;

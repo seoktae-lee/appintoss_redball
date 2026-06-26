@@ -192,9 +192,10 @@ export function QualifyTab({ data }: Props) {
                     <span style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>{awayTeam?.name || sc.match.away}</span>
                   </div>
                 </div>
-                {/* ELO 기반 예상 확률 바 */}
+                {/* ELO 기반 예상 승률 */}
                 {sc.probabilities && (
-                  <div style={{ marginBottom: 10 }}>
+                  <div style={{ marginBottom: 10, padding: "8px 10px", background: "rgba(255,255,255,.04)", borderRadius: 8 }}>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,.35)", marginBottom: 6 }}>예상 승률 (ELO 레이팅 기반)</div>
                     <div style={{ display: "flex", height: 6, borderRadius: 3, overflow: "hidden", marginBottom: 6 }}>
                       <div style={{ width: `${sc.probabilities.homeWin}%`, background: "#E4002B" }} />
                       <div style={{ width: `${sc.probabilities.draw}%`, background: "rgba(255,255,255,.3)" }} />
@@ -212,10 +213,11 @@ export function QualifyTab({ data }: Props) {
                     {(() => {
                       const isGood = cond.startsWith("✅");
                       const isBad = cond.startsWith("❌");
-                      const color = isGood ? "#00856A" : isBad ? "#E4002B" : "#D4AF37";
-                      const bg = isGood ? "rgba(0,133,106,.15)" : isBad ? "rgba(228,0,43,.15)" : "rgba(212,175,55,.15)";
-                      const icon = isGood ? "▲" : isBad ? "▼" : "●";
-                      const text = cond.replace(/^[✅❌⚠️]\s*/, "");
+                      const isTip = cond.startsWith("💡");
+                      const color = isTip ? "#fff" : isGood ? "#00856A" : isBad ? "#E4002B" : "#D4AF37";
+                      const bg = isTip ? "rgba(228,0,43,.25)" : isGood ? "rgba(0,133,106,.15)" : isBad ? "rgba(228,0,43,.15)" : "rgba(212,175,55,.15)";
+                      const icon = isTip ? "★" : isGood ? "▲" : isBad ? "▼" : "●";
+                      const text = cond.replace(/^[✅❌⚠️💡]\s*/, "");
                       return (
                         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                           <span style={{ width: 20, height: 20, borderRadius: 6, background: bg, color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, flexShrink: 0, marginTop: 1 }}>{icon}</span>
