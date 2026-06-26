@@ -24,19 +24,10 @@ export function QualifyTab({ data }: Props) {
         background: "linear-gradient(135deg, #1a1a2e 0%, #2a1a1e 100%)",
         border: "1px solid rgba(228,0,43,.2)", position: "relative", overflow: "hidden",
       }}>
-        {/* 태극기 배경 */}
-        <svg style={{ position: "absolute", top: "50%", right: 16, transform: "translateY(-50%)", opacity: 0.1 }} width="100" height="100" viewBox="0 0 200 200">
-          <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255,255,255,.3)" strokeWidth="1"/>
+        {/* 태극 문양 */}
+        <svg style={{ position: "absolute", top: "50%", right: 20, transform: "translateY(-55%) rotate(-90deg)", opacity: 0.12 }} width="90" height="90" viewBox="0 0 200 200">
           <path d="M100 10 A90 90 0 0 1 100 190 A45 45 0 0 0 100 100 A45 45 0 0 1 100 10Z" fill="#E4002B"/>
           <path d="M100 190 A90 90 0 0 1 100 10 A45 45 0 0 0 100 100 A45 45 0 0 1 100 190Z" fill="#0033A0"/>
-          <g transform="rotate(-56 100 100)">
-            <rect x="30" y="25" width="28" height="4" rx="1" fill="#111"/><rect x="30" y="33" width="28" height="4" rx="1" fill="#111"/><rect x="30" y="41" width="28" height="4" rx="1" fill="#111"/>
-            <rect x="142" y="155" width="28" height="4" rx="1" fill="#111"/><rect x="142" y="163" width="28" height="4" rx="1" fill="#111"/><rect x="142" y="171" width="28" height="4" rx="1" fill="#111"/>
-          </g>
-          <g transform="rotate(56 100 100)">
-            <rect x="142" y="25" width="28" height="4" rx="1" fill="#111"/><rect x="142" y="33" width="12" height="4" rx="1" fill="#111"/><rect x="158" y="33" width="12" height="4" rx="1" fill="#111"/><rect x="142" y="41" width="28" height="4" rx="1" fill="#111"/>
-            <rect x="30" y="155" width="12" height="4" rx="1" fill="#111"/><rect x="46" y="155" width="12" height="4" rx="1" fill="#111"/><rect x="30" y="163" width="28" height="4" rx="1" fill="#111"/><rect x="30" y="171" width="12" height="4" rx="1" fill="#111"/><rect x="46" y="171" width="12" height="4" rx="1" fill="#111"/>
-          </g>
         </svg>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,.5)", marginBottom: 6 }}>대한민국 32강 진출 확률</div>
         <div style={{ fontSize: 56, fontWeight: 800, color: "#E4002B", lineHeight: 1 }}>
