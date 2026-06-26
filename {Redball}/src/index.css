@@ -1,9 +1,11 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body {
+html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
   background: #0F0F1E;
   color: #fff;
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 :root {
   --red: #E4002B;
