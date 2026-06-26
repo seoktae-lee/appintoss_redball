@@ -33,6 +33,10 @@ router.delete("/me", authMiddleware, (req: AuthRequest, res: Response): void => 
 });
 
 router.post("/unlink", (req: Request, res: Response): void => {
+  const { userKey } = req.body as { userKey?: string };
+  if (userKey) {
+    console.log(`[Unlink] userKey=${userKey}`);
+  }
   res.json({ ok: true });
 });
 
