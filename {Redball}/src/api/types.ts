@@ -43,8 +43,7 @@ export interface Scenario {
   group: string;
   match: { home: string; away: string; date: string; status: string };
   conditions: string[];
-  impact: "positive" | "negative" | "neutral";
-  fulfilled: boolean | null;
+  impact: "must_watch" | "helpful" | "dangerous";
 }
 
 export interface WorldCupData {

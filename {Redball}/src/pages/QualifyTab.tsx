@@ -167,10 +167,12 @@ export function QualifyTab({ data }: Props) {
               month: "numeric", day: "numeric", weekday: "short",
               hour: "2-digit", minute: "2-digit", hour12: false,
             });
+            const borderColor = sc.impact === "must_watch" ? "var(--gold)" : sc.impact === "dangerous" ? "var(--red)" : "var(--teal)";
+
             return (
               <div key={idx} style={{
                 background: "var(--card2)", borderRadius: 14, padding: 14, marginBottom: 10,
-                borderLeft: `3px solid ${sc.impact === "must_watch" ? "var(--gold)" : sc.impact === "dangerous" ? "var(--red)" : "var(--teal)"}`,
+                borderLeft: `3px solid ${borderColor}`,
               }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                   <span style={{
@@ -191,9 +193,7 @@ export function QualifyTab({ data }: Props) {
                   </div>
                 </div>
                 {sc.conditions.map((cond, ci) => (
-                  <div key={ci} style={{
-                    display: "flex", alignItems: "flex-start", gap: 6, marginTop: 4,
-                  }}>
+                  <div key={ci} style={{ display: "flex", alignItems: "flex-start", gap: 6, marginTop: 4 }}>
                     {(() => {
                       const isGood = cond.startsWith("✅");
                       const isBad = cond.startsWith("❌");

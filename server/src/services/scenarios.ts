@@ -9,9 +9,9 @@ export interface Scenario {
 }
 
 const SCORES: [number, number][] = [
-  [1, 0], [2, 0], [2, 1], [3, 0], [3, 1], [4, 0], [5, 0],
-  [0, 0], [1, 1], [2, 2],
-  [0, 1], [0, 2], [1, 2], [0, 3], [1, 3], [0, 4], [0, 5],
+  [1, 0], [2, 0], [2, 1], [3, 0],
+  [0, 0], [1, 1],
+  [0, 1], [0, 2], [1, 2], [0, 3],
 ];
 
 function getKoreaRank(matches: MatchResult[]): number {
@@ -25,6 +25,13 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
   const remaining = matches.filter(m => m.status !== "FINISHED");
   if (remaining.length === 0) return [];
 
+  // 같은 조 경기를 그룹핑
+  const groupedRemaining: Record<string, MatchResult[]> = {};
+  for (const m of remaining) {
+    if (!groupedRemaining[m.group]) groupedRemaining[m.group] = [];
+    groupedRemaining[m.group].push(m);
+  }
+
   const currentRank = getKoreaRank(matches);
   const scenarios: Scenario[] = [];
 
@@ -32,85 +39,90 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
     const homeName = TEAMS[match.homeTeam]?.name || match.homeTeam;
     const awayName = TEAMS[match.awayTeam]?.name || match.awayTeam;
 
-    type SimResult = { h: number; a: number; rank: number };
-    const sims: SimResult[] = [];
+    // 같은 조 다른 경기도 함께 시뮬레이션
+    const sameGroupMatches = (groupedRemaining[match.group] || []).filter(m => m.id !== match.id);
+
+    const allRanks: number[] = [];
+    const homeWinRanks: number[] = [];
+    const drawRanks: number[] = [];
+    const awayWinRanks: number[] = [];
+
+    const pairScores = sameGroupMatches.length > 0 ? SCORES : [[null, null] as [null, null]];
 
     for (const [h, a] of SCORES) {
-      const sim = matches.map(m =>
-        m.id === match.id ? { ...m, homeScore: h, awayScore: a, status: "FINISHED" as const } : m
-      );
-      sims.push({ h, a, rank: getKoreaRank(sim) });
+      for (const [ph, pa] of pairScores) {
+        const sim = matches.map(m => {
+          if (m.id === match.id) return { ...m, homeScore: h, awayScore: a, status: "FINISHED" as const };
+          if (ph !== null && sameGroupMatches.some(sm => sm.id === m.id)) {
+            return { ...m, homeScore: ph, awayScore: pa, status: "FINISHED" as const };
+          }
+          return m;
+        });
+        const rank = getKoreaRank(sim);
+        allRanks.push(rank);
+        if (h > a) homeWinRanks.push(rank);
+        else if (h === a) drawRanks.push(rank);
+        else awayWinRanks.push(rank);
+      }
     }
 
-    const allSame = sims.every(s => s.rank === sims[0].rank);
-    if (allSame) continue;
+    const uniqueRanks = [...new Set(allRanks)];
+    if (uniqueRanks.length === 1 && uniqueRanks[0] === currentRank) {
+      scenarios.push({
+        group: match.group,
+        match: { home: match.homeTeam, away: match.awayTeam, date: match.date, status: match.status },
+        conditions: [`어떤 결과든 한국 순위 변동 없음 (${currentRank}위 유지)`],
+        impact: "helpful",
+      });
+      continue;
+    }
 
-    const homeWins = sims.filter(s => s.h > s.a);
-    const draws = sims.filter(s => s.h === s.a);
-    const awayWins = sims.filter(s => s.h < s.a);
-
-    const bestRank = Math.min(...sims.map(s => s.rank));
-    const worstRank = Math.max(...sims.map(s => s.rank));
-
+    const bestRank = Math.min(...allRanks);
+    const worstRank = Math.max(...allRanks);
     const conditions: string[] = [];
 
-    const bestHomeRank = homeWins.length > 0 ? Math.min(...homeWins.map(s => s.rank)) : currentRank;
-    const worstHomeRank = homeWins.length > 0 ? Math.max(...homeWins.map(s => s.rank)) : currentRank;
-    const bestDrawRank = draws.length > 0 ? Math.min(...draws.map(s => s.rank)) : currentRank;
-    const worstDrawRank = draws.length > 0 ? Math.max(...draws.map(s => s.rank)) : currentRank;
-    const bestAwayRank = awayWins.length > 0 ? Math.min(...awayWins.map(s => s.rank)) : currentRank;
-    const worstAwayRank = awayWins.length > 0 ? Math.max(...awayWins.map(s => s.rank)) : currentRank;
-
-    // 홈 승리 분석
-    if (homeWins.length > 0) {
-      if (worstHomeRank <= 8 && bestHomeRank < currentRank) {
-        conditions.push(`✅ ${homeName} 승리 → 한국 ${bestHomeRank}위로 상승`);
-      } else if (worstHomeRank <= 8) {
+    // 홈 승리
+    if (homeWinRanks.length > 0) {
+      const best = Math.min(...homeWinRanks);
+      const worst = Math.max(...homeWinRanks);
+      if (worst <= 8 && best < currentRank) {
+        conditions.push(`✅ ${homeName} 승리 → 한국 ${best}위로 상승`);
+      } else if (worst <= 8) {
         conditions.push(`✅ ${homeName} 승리 → 한국 진출 유지`);
-      } else if (bestHomeRank <= 8) {
-        const goodOnes = homeWins.filter(s => s.rank <= 8);
-        const badOnes = homeWins.filter(s => s.rank > 8);
-        const maxGoodGD = Math.max(...goodOnes.map(s => s.h - s.a));
-        const minBadGD = Math.min(...badOnes.map(s => s.h - s.a));
-        if (maxGoodGD < minBadGD) {
-          conditions.push(`⚠️ ${homeName} ${maxGoodGD}골차 이내 승리만 유리 (${minBadGD}골차 이상 대승 시 불리)`);
-        } else {
-          conditions.push(`⚠️ ${homeName} 승리 시 스코어에 따라 다름`);
-        }
+      } else if (best <= 8) {
+        conditions.push(`⚠️ ${homeName} 승리 시 다른 경기 결과에 따라 다름`);
       } else {
-        conditions.push(`❌ ${homeName} 승리 시 불리 (한국 ${worstHomeRank}위로 하락)`);
+        conditions.push(`❌ ${homeName} 승리 시 불리 (한국 최대 ${worst}위)`);
       }
     }
 
-    // 무승부 분석
-    if (draws.length > 0) {
-      if (worstDrawRank <= 8 && bestDrawRank < currentRank) {
-        conditions.push(`✅ 무승부 → 한국 ${bestDrawRank}위로 상승`);
-      } else if (worstDrawRank <= 8) {
+    // 무승부
+    if (drawRanks.length > 0) {
+      const best = Math.min(...drawRanks);
+      const worst = Math.max(...drawRanks);
+      if (worst <= 8 && best < currentRank) {
+        conditions.push(`✅ 무승부 → 한국 ${best}위로 상승`);
+      } else if (worst <= 8) {
         conditions.push(`✅ 무승부 → 한국 진출 유지`);
+      } else if (best <= 8) {
+        conditions.push(`⚠️ 무승부 시 다른 경기 결과에 따라 다름`);
       } else {
-        conditions.push(`❌ 무승부 시 불리 (한국 ${worstDrawRank}위로 하락)`);
+        conditions.push(`❌ 무승부 시 불리 (한국 최대 ${worst}위)`);
       }
     }
 
-    // 원정 승리 분석
-    if (awayWins.length > 0) {
-      if (worstAwayRank <= 8 && bestAwayRank < currentRank) {
-        conditions.push(`✅ ${awayName} 승리 → 한국 ${bestAwayRank}위로 상승`);
-      } else if (worstAwayRank <= 8) {
+    // 원정 승리
+    if (awayWinRanks.length > 0) {
+      const best = Math.min(...awayWinRanks);
+      const worst = Math.max(...awayWinRanks);
+      if (worst <= 8 && best < currentRank) {
+        conditions.push(`✅ ${awayName} 승리 → 한국 ${best}위로 상승`);
+      } else if (worst <= 8) {
         conditions.push(`✅ ${awayName} 승리 → 한국 진출 유지`);
-      } else if (bestAwayRank <= 8) {
-        const goodOnes = awayWins.filter(s => s.rank <= 8);
-        const badOnes = awayWins.filter(s => s.rank > 8);
-        const maxGoodGD = Math.max(...goodOnes.map(s => s.a - s.h));
-        const minBadGD = Math.min(...badOnes.map(s => s.a - s.h));
-        if (maxGoodGD < minBadGD) {
-          conditions.push(`⚠️ ${awayName} ${maxGoodGD}골차 이내 승리만 유리 (${minBadGD}골차 이상 대승 시 불리)`);
-        } else {
-          conditions.push(`⚠️ ${awayName} 승리 시 스코어에 따라 다름`);
-        }
+      } else if (best <= 8) {
+        conditions.push(`⚠️ ${awayName} 승리 시 다른 경기 결과에 따라 다름`);
       } else {
-        conditions.push(`❌ ${awayName} 승리 시 불리 (한국 ${worstAwayRank}위로 하락)`);
+        conditions.push(`❌ ${awayName} 승리 시 불리 (한국 최대 ${worst}위)`);
       }
     }
 
