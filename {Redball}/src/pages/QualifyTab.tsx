@@ -11,6 +11,7 @@ export function QualifyTab({ data }: Props) {
   const { probability, koreaStatus, thirdPlaceTable, teams } = data;
   const [showThirdTable, setShowThirdTable] = useState(false);
   const [showBingo, setShowBingo] = useState(false);
+  const [showScenarios, setShowScenarios] = useState(false);
 
   const statusLabel = koreaStatus.qualified
     ? probability === 100 ? "32강 진출 확정" : "진출권 안에 있음"
@@ -250,20 +251,24 @@ export function QualifyTab({ data }: Props) {
         </div>}
       </div>
 
-      {/* 관전 포인트 */}
+      {/* 관전 포인트 (토글) */}
       {data.scenarios && data.scenarios.length > 0 && (
-        <div style={{ padding: "0 16px", marginTop: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,.4)", letterSpacing: 1, marginBottom: 10 }}>
-            관전 포인트
-          </div>
-          <div style={{ padding: "12px 14px", background: "var(--card)", borderRadius: 14, marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff", marginBottom: 4 }}>
-              남은 경기 중 한국 진출에 영향을 주는 경기
+        <div style={{ padding: "0 16px", marginTop: 16 }}>
+          <button
+            onClick={() => setShowScenarios(!showScenarios)}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 16px", background: "var(--card)", borderRadius: 14, border: "none",
+              cursor: "pointer", marginBottom: showScenarios ? 10 : 0, fontFamily: "inherit",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>관전 포인트</span>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>{data.scenarios.length}경기</span>
             </div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,.5)" }}>
-              아래 조건이 충족되면 한국 32강 진출에 유리해요
-            </div>
-          </div>
+            <span style={{ fontSize: 14, color: "rgba(255,255,255,.4)", transition: "transform .2s", transform: showScenarios ? "rotate(180deg)" : "rotate(0)" }}>▼</span>
+          </button>
+          {showScenarios && <>
           {data.scenarios.map((sc, idx) => {
             const homeTeam = teams[sc.match.home];
             const awayTeam = teams[sc.match.away];
@@ -334,6 +339,7 @@ export function QualifyTab({ data }: Props) {
               </div>
             );
           })}
+          </>}
         </div>
       )}
 
