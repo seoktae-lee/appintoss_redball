@@ -10,6 +10,7 @@ const FLAG_URL = (code: string) => `https://flagcdn.com/w40/${code}.png`;
 export function QualifyTab({ data }: Props) {
   const { probability, koreaStatus, thirdPlaceTable, teams } = data;
   const [showThirdTable, setShowThirdTable] = useState(false);
+  const [showBingo, setShowBingo] = useState(false);
 
   const statusLabel = koreaStatus.qualified
     ? probability === 100 ? "32강 진출 확정" : "진출권 안에 있음"
@@ -59,6 +60,109 @@ export function QualifyTab({ data }: Props) {
           ))}
         </div>
       </div>
+
+      {/* 3x3 빙고판 (토글) */}
+      {data.bingo && data.bingo.cells.length > 0 && (
+        <div style={{ padding: "0 16px", marginBottom: 16 }}>
+          <button
+            onClick={() => setShowBingo(!showBingo)}
+            style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "14px 16px", background: "var(--card)", borderRadius: 14, border: "none",
+              cursor: "pointer", marginBottom: showBingo ? 10 : 0, fontFamily: "inherit",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>32강 빙고판</span>
+              <div style={{ display: "flex", gap: 3 }}>
+                {data.bingo.cells.map((c, i) => (
+                  <div key={i} style={{
+                    width: 14, height: 14, borderRadius: 3, fontSize: 8, fontWeight: 700,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: c.status === "fulfilled" ? "var(--teal)" : c.status === "failed" ? "var(--red)" : "rgba(255,255,255,.15)",
+                    color: "#fff",
+                  }}>{c.status === "fulfilled" ? "O" : c.status === "failed" ? "X" : ""}</div>
+                ))}
+              </div>
+              <span style={{ fontSize: 12, color: "var(--gold)", fontWeight: 600 }}>{data.bingo.fulfilledCount}/3</span>
+            </div>
+            <span style={{ fontSize: 14, color: "rgba(255,255,255,.4)", transition: "transform .2s", transform: showBingo ? "rotate(180deg)" : "rotate(0)" }}>▼</span>
+          </button>
+          {showBingo && <div style={{
+            background: "var(--card)", borderRadius: 20, padding: "16px 12px", overflow: "hidden",
+            border: "1px solid rgba(255,255,255,.08)",
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 12 }}>
+              <p style={{ fontSize: 13, color: "var(--gold)" }}>
+                9가지 중 <span style={{ fontWeight: 800, fontSize: 15, color: "var(--red)" }}>3개</span>만 맞으면 한국 32강 진출!
+              </p>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+              {data.bingo.cells.map((cell, idx) => {
+                const t1 = teams[cell.team1];
+                const t2 = teams[cell.team2];
+                const isFulfilled = cell.status === "fulfilled";
+                const isFailed = cell.status === "failed";
+
+                const borderColor = isFulfilled ? "var(--teal)" : isFailed ? "var(--red)" : "rgba(255,255,255,.1)";
+                const bgColor = isFulfilled ? "rgba(0,133,106,.08)" : isFailed ? "rgba(228,0,43,.06)" : "var(--card2)";
+
+                return (
+                  <div key={idx} style={{
+                    background: bgColor, borderRadius: 12, padding: "10px 6px",
+                    border: `1.5px solid ${borderColor}`, textAlign: "center",
+                    position: "relative",
+                  }}>
+                    <div style={{
+                      fontSize: 10, fontWeight: 700, color: isFulfilled ? "var(--teal)" : isFailed ? "var(--red)" : "rgba(255,255,255,.5)",
+                      marginBottom: 6, padding: "1px 6px", background: "rgba(255,255,255,.08)",
+                      borderRadius: 4, display: "inline-block",
+                    }}>{cell.group}조</div>
+
+                    <div style={{ display: "flex", justifyContent: "center", gap: 4, marginBottom: 6 }}>
+                      <img src={FLAG_URL(t1?.flag || "")} style={{ width: 24, height: 16, borderRadius: 2 }} />
+                      <img src={FLAG_URL(t2?.flag || "")} style={{ width: 24, height: 16, borderRadius: 2 }} />
+                    </div>
+
+                    <p style={{
+                      fontSize: 10, color: "rgba(255,255,255,.75)", lineHeight: 1.4,
+                      wordBreak: "keep-all", minHeight: 28,
+                    }}>
+                      {cell.condition}
+                    </p>
+
+                    {(isFulfilled || isFailed) && (
+                      <div style={{
+                        position: "absolute", inset: 0, borderRadius: 12,
+                        background: isFulfilled ? "rgba(0,133,106,.15)" : "rgba(228,0,43,.12)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                      }}>
+                        <span style={{
+                          fontSize: 28, fontWeight: 800,
+                          color: isFulfilled ? "var(--teal)" : "var(--red)",
+                          opacity: 0.6,
+                        }}>{isFulfilled ? "✓" : "✕"}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{
+              marginTop: 12, padding: "10px 12px", borderRadius: 10,
+              background: data.bingo.fulfilledCount >= 3 ? "rgba(0,133,106,.12)" : "rgba(212,175,55,.1)",
+              textAlign: "center",
+            }}>
+              <p style={{
+                fontSize: 13, fontWeight: 700,
+                color: data.bingo.fulfilledCount >= 3 ? "var(--teal)" : "var(--gold)",
+              }}>{data.bingo.message}</p>
+            </div>
+          </div>}
+        </div>
+      )}
 
       {/* 3위 비교표 (토글) */}
       <div style={{ padding: "0 16px" }}>

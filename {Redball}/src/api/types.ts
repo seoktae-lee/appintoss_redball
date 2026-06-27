@@ -61,6 +61,18 @@ export interface WorldCupData {
   };
   probability: number;
   scenarios: Scenario[];
+  bingo: {
+    cells: Array<{
+      group: string;
+      team1: string;
+      team2: string;
+      condition: string;
+      status: "fulfilled" | "failed" | "pending";
+    }>;
+    fulfilledCount: number;
+    totalCount: number;
+    message: string;
+  };
   todayMatches: MatchResult[];
   lastUpdated: string;
 }

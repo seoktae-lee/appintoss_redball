@@ -4,6 +4,7 @@ import { fetchMatches } from "../services/football-api";
 import { calcAllGroupStandings, getThirdPlaceTable, isKoreaQualified } from "../services/standings";
 import { calcQualificationProbability } from "../services/probability";
 import { calcScenarios } from "../services/scenarios";
+import { calcBingo } from "../services/bingo";
 import { loadMatches, saveCachedProbability, loadCachedProbability } from "../db";
 
 const router = Router();
@@ -39,6 +40,7 @@ router.get("/data", async (_req, res) => {
     const todayMatches = matches.filter(m => m.date.slice(0, 10) === todayStr);
 
     const scenarios = calcScenarios(matches);
+    const bingo = calcBingo(matches);
 
     res.json({
       teams: TEAMS,
@@ -53,6 +55,7 @@ router.get("/data", async (_req, res) => {
       },
       probability: cached.probability,
       scenarios,
+      bingo,
       todayMatches,
       lastUpdated: new Date().toISOString(),
     });
