@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import type { TournamentOddsResponse } from "../api/types";
 import { BannerAd } from "../components/BannerAd";
 import { AD_IDS } from "../data/adConfig";
+import trophy from "../assets/trophy.png";
 
 const FLAG_URL = (code: string) => `https://flagcdn.com/w40/${code}.png`;
 
@@ -54,9 +55,13 @@ export function ProbabilityTab({ myTeam }: { myTeam?: string }) {
                   borderRadius: "8px 8px 0 0", display: "flex", alignItems: "center",
                   justifyContent: "center", border: `1px solid ${medalColor}33`,
                 }}>
-                  <span style={{ fontSize: 22, fontWeight: 900, color: medalColor }}>
-                    {rank === 1 ? "🥇" : rank === 2 ? "🥈" : "🥉"}
-                  </span>
+                  {rank === 1 ? (
+                    <img src={trophy} style={{ width: 44, height: 44, objectFit: "contain" }} />
+                  ) : (
+                    <span style={{ fontSize: 22, fontWeight: 900, color: medalColor }}>
+                      {rank === 2 ? "🥈" : "🥉"}
+                    </span>
+                  )}
                 </div>
               </div>
             );

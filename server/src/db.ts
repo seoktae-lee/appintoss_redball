@@ -127,7 +127,7 @@ export function saveCachedTournamentOdds(data: CachedTournamentOdds) {
 }
 
 // User predictions
-interface UserPrediction {
+export interface UserPrediction {
   userId: string;
   predictions: Record<string, string>; // matchId -> teamCode (predicted winner)
   updatedAt: string;
@@ -135,6 +135,8 @@ interface UserPrediction {
 
 function loadPredictions(): UserPrediction[] { return loadJSON("predictions.json", []); }
 function savePredictions(preds: UserPrediction[]) { saveJSON("predictions.json", preds); }
+
+export function getAllPredictions(): UserPrediction[] { return loadPredictions(); }
 
 export function getUserPrediction(userId: string): Record<string, string> {
   const pred = loadPredictions().find(p => p.userId === userId);

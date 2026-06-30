@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { api } from "../api/client";
-import type { BracketResponse, PredictResponse } from "../api/types";
+import type { BracketResponse, PredictResponse, LeaderboardResponse } from "../api/types";
 
 const FLAG_URL = (code: string) => `https://flagcdn.com/w40/${code}.png`;
 
@@ -8,20 +8,91 @@ const ROUND_LABEL: Record<string, string> = {
   R32: "32강", R16: "16강", QF: "8강", SF: "4강", F: "결승",
 };
 
+function LeaderboardCard({ data }: { data: LeaderboardResponse }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (data.totalParticipants === 0) {
+    return (
+      <div style={{
+        margin: "0 16px 16px", padding: "14px 16px", borderRadius: 14,
+        background: "var(--card)", border: "1px solid rgba(255,255,255,.06)",
+        fontSize: 12, color: "var(--w40)", textAlign: "center",
+      }}>
+        아직 결과가 나온 경기가 없어요 — 첫 결과가 나오면 랭킹이 시작돼요
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ margin: "0 16px 16px" }}>
+      <button
+        onClick={() => setExpanded(!expanded)}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 16px", background: "var(--card)", borderRadius: 14, border: "none",
+          cursor: "pointer", marginBottom: expanded ? 10 : 0, fontFamily: "inherit",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>예측 랭킹</span>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>참여 {data.totalParticipants}명</span>
+        </div>
+        <span style={{ fontSize: 14, color: "rgba(255,255,255,.4)", transition: "transform .2s", transform: expanded ? "rotate(180deg)" : "rotate(0)" }}>▼</span>
+      </button>
+
+      {expanded && (
+        <div style={{ background: "var(--card)", borderRadius: 16, padding: 12 }}>
+          {data.me && (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+              background: "var(--red-bg)", borderRadius: 10, marginBottom: 10,
+            }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "var(--red)", width: 28 }}>{data.me.rank}위</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red)", flex: 1 }}>{data.me.nickname} (나)</span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{data.me.accuracy}%</span>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>{data.me.correctCount}/{data.me.totalCount}</span>
+            </div>
+          )}
+          {data.top.map(e => (
+            <div key={e.userId} style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
+              background: e.userId === data.me?.userId ? "var(--red-bg)" : "transparent",
+              borderRadius: 10,
+            }}>
+              <span style={{
+                fontSize: 13, fontWeight: 800, width: 28,
+                color: e.rank === 1 ? "var(--gold)" : e.rank === 2 ? "#C0C0C0" : e.rank === 3 ? "#CD7F32" : "var(--w40)",
+              }}>{e.rank}위</span>
+              <span style={{ fontSize: 13, color: e.userId === data.me?.userId ? "var(--red)" : "#fff", flex: 1, fontWeight: e.userId === data.me?.userId ? 700 : 400 }}>
+                {e.nickname}{e.userId === data.me?.userId ? " (나)" : ""}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "var(--gold)" }}>{e.accuracy}%</span>
+              <span style={{ fontSize: 11, color: "rgba(255,255,255,.4)" }}>{e.correctCount}/{e.totalCount}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function PredictTab() {
   const [bracket, setBracket] = useState<BracketResponse | null>(null);
   const [predict, setPredict] = useState<PredictResponse | null>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
-      const [b, p] = await Promise.all([
+      const [b, p, l] = await Promise.all([
         api.get<BracketResponse>("/api/worldcup/bracket"),
         api.get<PredictResponse>("/api/worldcup/predict"),
+        api.get<LeaderboardResponse>("/api/worldcup/predict/leaderboard"),
       ]);
       setBracket(b);
       setPredict(p);
+      setLeaderboard(l);
     } catch {}
     setLoading(false);
   };
@@ -69,6 +140,8 @@ export function PredictTab() {
           <div style={{ fontSize: 11, color: "var(--w40)" }}>/ {predict.totalCount} 정답</div>
         </div>
       </div>
+
+      {leaderboard && <LeaderboardCard data={leaderboard} />}
 
       {/* 라운드별 예측 */}
       {ROUND_ORDER.map(round => {

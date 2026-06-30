@@ -8,6 +8,7 @@ import { calcBingo } from "../services/bingo";
 import { calcTournamentOdds, getNextMatchScenario } from "../services/tournament";
 import { syncBracketFromAPI, applyBracketMatchResult } from "../services/bracketSync";
 import { calcKnockoutWatchPoint } from "../services/knockoutScenarios";
+import { calcAccuracy, calcLeaderboard } from "../services/leaderboard";
 import { loadMatches, saveCachedProbability, loadCachedProbability, loadBracket, saveBracket, loadCachedTournamentOdds, saveCachedTournamentOdds, getUserPrediction, saveUserPrediction } from "../db";
 import { authMiddleware, AuthRequest } from "../middleware/auth";
 
@@ -186,18 +187,16 @@ router.get("/path", async (req: Request, res: Response): Promise<void> => {
 router.get("/predict", authMiddleware, (req: AuthRequest, res: Response) => {
   const predictions = getUserPrediction(req.userId!);
   const bracket = loadBracket();
-  // 정답률 계산
-  let correct = 0; let total = 0;
-  for (const m of bracket) {
-    if (m.status === "FINISHED" && m.homeScore !== null && m.awayScore !== null) {
-      const winner = m.homeScore > m.awayScore ? m.homeTeam : m.awayTeam;
-      if (predictions[m.id]) {
-        total++;
-        if (predictions[m.id] === winner) correct++;
-      }
-    }
-  }
+  const { correct, total } = calcAccuracy(predictions, bracket);
   res.json({ predictions, correctCount: correct, totalCount: total });
+});
+
+// 예측 랭킹 — 정답률 기준 상위 유저 + 내 순위
+router.get("/predict/leaderboard", authMiddleware, (req: AuthRequest, res: Response) => {
+  const bracket = loadBracket();
+  const ranked = calcLeaderboard(bracket);
+  const me = ranked.find(e => e.userId === req.userId) || null;
+  res.json({ top: ranked.slice(0, 50), me, totalParticipants: ranked.length });
 });
 
 // 예측 저장/수정

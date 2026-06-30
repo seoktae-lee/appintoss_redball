@@ -161,3 +161,18 @@ export interface PredictResponse {
   correctCount: number;
   totalCount: number;
 }
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  nickname: string;
+  correctCount: number;
+  totalCount: number;
+  accuracy: number;
+}
+
+export interface LeaderboardResponse {
+  top: LeaderboardEntry[];
+  me: LeaderboardEntry | null;
+  totalParticipants: number;
+}
