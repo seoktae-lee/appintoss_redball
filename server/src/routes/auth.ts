@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { signToken, authMiddleware, AuthRequest } from "../middleware/auth";
-import { findUserByAnonymousKey, createUser, deleteUser, setUserTeam } from "../db";
+import { findUserByAnonymousKey, createUser, deleteUser, deleteUserPrediction, setUserTeam } from "../db";
 import { TEAMS } from "../data/worldcup2026";
 
 const router = Router();
@@ -41,12 +41,18 @@ router.patch("/me", authMiddleware, (req: AuthRequest, res: Response): void => {
 
 router.delete("/me", authMiddleware, (req: AuthRequest, res: Response): void => {
   deleteUser(req.userId!);
+  deleteUserPrediction(req.userId!);
   res.json({ ok: true });
 });
 
 router.post("/unlink", (req: Request, res: Response): void => {
   const { userKey } = req.body as { userKey?: string };
   if (userKey) {
+    const user = findUserByAnonymousKey(userKey);
+    if (user) {
+      deleteUser(user.id);
+      deleteUserPrediction(user.id);
+    }
     console.log(`[Unlink] userKey=${userKey}`);
   }
   res.json({ ok: true });

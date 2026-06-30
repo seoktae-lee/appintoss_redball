@@ -151,3 +151,7 @@ export function saveUserPrediction(userId: string, predictions: Record<string, s
   else all[idx] = entry;
   savePredictions(all);
 }
+
+export function deleteUserPrediction(userId: string) {
+  savePredictions(loadPredictions().filter(p => p.userId !== userId));
+}
