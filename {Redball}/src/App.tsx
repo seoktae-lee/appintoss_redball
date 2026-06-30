@@ -12,7 +12,7 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("redball_token"));
   const [myTeam, setMyTeam] = useState<string | null>(() => localStorage.getItem("redball_my_team"));
   const [tab, setTab] = useState<Tab>("bracket");
-  const { refresh } = useWorldCup(myTeam);
+  const { data, refresh } = useWorldCup(myTeam);
 
   if (!loggedIn) {
     return (
