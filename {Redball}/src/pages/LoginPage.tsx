@@ -165,7 +165,11 @@ export function LoginPage({ onLogin }: Props) {
           {isLoading ? "로그인 중..." : "토스로 시작하기"}
         </button>
         <p style={{ fontSize: 11, color: "rgba(255,255,255,.3)", marginTop: 12 }}>
-          시작하면 이용약관에 동의합니다
+          시작하면{" "}
+          <span
+            onClick={() => window.open("https://seoktae-lee.github.io/appintoss_redball_terms/", "_blank")}
+            style={{ textDecoration: "underline", cursor: "pointer" }}
+          >이용약관</span>에 동의합니다
         </p>
       </div>
     </div>

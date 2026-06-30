@@ -60,6 +60,13 @@ export default function App() {
               border: "none", borderRadius: 8, padding: "5px 9px", cursor: "pointer", fontFamily: "inherit",
             }}
           >팀 변경</button>
+          <button
+            onClick={() => window.open("https://seoktae-lee.github.io/appintoss_redball_terms/", "_blank")}
+            style={{
+              fontSize: 11, color: "var(--w60)", background: "rgba(255,255,255,.08)",
+              border: "none", borderRadius: 8, padding: "5px 9px", cursor: "pointer", fontFamily: "inherit",
+            }}
+          >약관</button>
           <div style={{ textAlign: "right" }} onClick={refresh}>
             <small style={{ fontSize: 11, color: "var(--w40)" }}>업데이트</small><br/>
             <span style={{ fontSize: 12, color: "var(--w60)" }}>
