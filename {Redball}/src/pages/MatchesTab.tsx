@@ -12,8 +12,8 @@ interface MatchScenario {
   probabilities?: { homeWin: number; draw: number; awayWin: number };
 }
 
-function MatchCard({ match, teams, isKorea, scenario, isExpanded, onToggle }: {
-  match: MatchResult; teams: WorldCupData["teams"]; isKorea: boolean;
+function MatchCard({ match, teams, isMyTeam, scenario, isExpanded, onToggle }: {
+  match: MatchResult; teams: WorldCupData["teams"]; isMyTeam: boolean;
   scenario?: MatchScenario; isExpanded: boolean; onToggle: () => void;
 }) {
   const home = teams[match.homeTeam];
@@ -27,8 +27,8 @@ function MatchCard({ match, teams, isKorea, scenario, isExpanded, onToggle }: {
       <div onClick={scenario ? onToggle : undefined} style={{
         background: "var(--card2)", borderRadius: isExpanded ? "14px 14px 0 0" : 14, padding: 14,
         display: "flex", alignItems: "center",
-        border: isKorea ? "1px solid var(--red)" : "none",
-        backgroundColor: isKorea ? "rgba(228,0,43,.06)" : "var(--card2)",
+        border: isMyTeam ? "1px solid var(--red)" : "none",
+        backgroundColor: isMyTeam ? "rgba(228,0,43,.06)" : "var(--card2)",
         cursor: scenario ? "pointer" : "default",
       }}>
         <div style={{ width: 50, textAlign: "center", flexShrink: 0 }}>
@@ -122,7 +122,8 @@ export function MatchesTab({ data }: Props) {
     ? todayMatches
     : matches.filter(m => m.date.slice(0, 10) === dateStr);
 
-  const koreaTeams = new Set(["KOR"]);
+  const myTeamCode = data.teamStatus.code;
+  const myTeamGroup = data.teamStatus.group;
 
   const groupKeys = Object.keys(groups).sort();
 
@@ -157,7 +158,7 @@ export function MatchesTab({ data }: Props) {
                 key={m.id}
                 match={m}
                 teams={teams}
-                isKorea={koreaTeams.has(m.homeTeam) || koreaTeams.has(m.awayTeam)}
+                isMyTeam={m.homeTeam === myTeamCode || m.awayTeam === myTeamCode}
                 scenario={scenario}
                 isExpanded={expandedMatch === m.id}
                 onToggle={() => setExpandedMatch(expandedMatch === m.id ? null : m.id)}
@@ -186,7 +187,7 @@ export function MatchesTab({ data }: Props) {
         {showGroups && <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
           {groupKeys.map(g => {
             const standings = allStandings[g] || [];
-            const isKoreaGroup = g === "A";
+            const isKoreaGroup = g === myTeamGroup;
             const groupMatches = matches.filter(m => m.group === g);
             const finished = groupMatches.filter(m => m.status === "FINISHED").length;
             const total = groupMatches.length;
@@ -206,7 +207,7 @@ export function MatchesTab({ data }: Props) {
                 </div>
                 {standings.map(s => {
                   const team = teams[s.team];
-                  const isKorea = s.team === "KOR";
+                  const isKorea = s.team === myTeamCode;
                   const isFirst = s.position <= 2;
                   const isThirdGood = s.position === 3;
 

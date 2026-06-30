@@ -1,5 +1,5 @@
-import { TEAMS, KOREA_CODE, KOREA_GROUP, type MatchResult } from "../data/worldcup2026";
-import { calcAllGroupStandings, getThirdPlaceTable } from "./standings";
+import { TEAMS, GROUPS, type MatchResult } from "../data/worldcup2026";
+import { calcAllGroupStandings, getThirdPlaceTable, isTeamQualified } from "./standings";
 
 export interface BingoCell {
   group: string;
@@ -16,11 +16,13 @@ export interface BingoData {
   message: string;
 }
 
-function getKoreaRank(matches: MatchResult[]): number {
+function getTeamRank(matches: MatchResult[], teamCode: string): number {
   const standings = calcAllGroupStandings(matches);
   const third = getThirdPlaceTable(standings, matches);
-  const idx = third.findIndex(e => e.team === KOREA_CODE);
-  return idx === -1 ? 99 : idx + 1;
+  const result = isTeamQualified(standings, third, teamCode);
+  if (result.groupPosition === 1 || result.groupPosition === 2) return 0;
+  if (result.groupPosition === 4) return 99;
+  return result.thirdPlaceRank ?? 50;
 }
 
 function getGroupThirdRank(matches: MatchResult[], group: string): number {
@@ -30,11 +32,35 @@ function getGroupThirdRank(matches: MatchResult[], group: string): number {
   return idx === -1 ? 99 : idx + 1;
 }
 
-export function calcBingo(matches: MatchResult[]): BingoData {
-  // D~L조만 (A조=한국, B/C조 포함 안 함 → 9칸)
-  const BINGO_GROUPS = ["D", "E", "F", "G", "H", "I", "J", "K", "L"];
+function getTeamGroup(teamCode: string): string {
+  for (const [g, codes] of Object.entries(GROUPS)) {
+    if (codes.includes(teamCode)) return g;
+  }
+  return "";
+}
+
+export function calcBingo(matches: MatchResult[], teamCode: string): BingoData {
+  const teamName = TEAMS[teamCode]?.name || teamCode;
+  const myGroup = getTeamGroup(teamCode);
+
+  // 내 조를 제외한 나머지 그룹 중 9개로 3x3 빙고판 구성
+  const BINGO_GROUPS = Object.keys(GROUPS).filter(g => g !== myGroup).slice(0, 9);
   const cells: BingoCell[] = [];
-  const koreaRank = getKoreaRank(matches);
+  const teamRank = getTeamRank(matches, teamCode);
+
+  // 이미 조 1~2위로 자동 진출했거나 4위로 확정 탈락한 경우 빙고는 의미 없음
+  const allStandings = calcAllGroupStandings(matches);
+  const thirdTable = getThirdPlaceTable(allStandings, matches);
+  const status = isTeamQualified(allStandings, thirdTable, teamCode);
+  const myGroupMatches = matches.filter(m => m.group === myGroup);
+  const myGroupFinished = myGroupMatches.length > 0 && myGroupMatches.every(m => m.status === "FINISHED");
+
+  if (myGroupFinished && (status.groupPosition === 1 || status.groupPosition === 2)) {
+    return { cells: [], fulfilledCount: 0, totalCount: 0, message: `${teamName} 조 ${status.groupPosition}위로 32강 자동 진출 확정!` };
+  }
+  if (myGroupFinished && status.groupPosition === 4) {
+    return { cells: [], fulfilledCount: 0, totalCount: 0, message: `${teamName} 조 4위로 탈락이 확정됐어요.` };
+  }
 
   for (const group of BINGO_GROUPS) {
     const groupMatches = matches.filter(m => m.group === group);
@@ -54,22 +80,19 @@ export function calcBingo(matches: MatchResult[]): BingoData {
 
     const homeName = TEAMS[keyMatch.homeTeam]?.name || keyMatch.homeTeam;
     const awayName = TEAMS[keyMatch.awayTeam]?.name || keyMatch.awayTeam;
-    // 3위 팀이 홈인지 어웨이인지
-    const thirdIsHome = keyMatch.homeTeam === thirdTeam.team;
-    const opponentName = thirdIsHome ? awayName : homeName;
 
     if (remaining.length === 0) {
       // 종료된 조: 결과 판단
       const groupThirdRank = getGroupThirdRank(matches, group);
-      const isFavorable = groupThirdRank > koreaRank;
+      const isFavorable = groupThirdRank > teamRank;
 
       cells.push({
         group,
         team1: keyMatch.homeTeam,
         team2: keyMatch.awayTeam,
         condition: isFavorable
-          ? `${thirdName} 승점${thirdTeam.points} (한국 아래)`
-          : `${thirdName} 승점${thirdTeam.points} (한국 위)`,
+          ? `${thirdName} 승점${thirdTeam.points} (${teamName} 아래)`
+          : `${thirdName} 승점${thirdTeam.points} (${teamName} 위)`,
         status: isFavorable ? "fulfilled" : "failed",
       });
     } else {
@@ -80,7 +103,6 @@ export function calcBingo(matches: MatchResult[]): BingoData {
         [1, 0], [2, 0], [2, 1], [3, 0], [3, 1], [4, 0], [5, 0],
       ];
 
-      const goodResults: string[] = [];
       const goodScores: { h: number; a: number }[] = [];
       const badScores: { h: number; a: number }[] = [];
 
@@ -89,9 +111,9 @@ export function calcBingo(matches: MatchResult[]): BingoData {
           m.id === keyMatch.id ? { ...m, homeScore: h, awayScore: a, status: "FINISHED" as const } : m
         );
         const simGroupThirdRank = getGroupThirdRank(sim, group);
-        const simKoreaRank = getKoreaRank(sim);
+        const simTeamRank = getTeamRank(sim, teamCode);
 
-        if (simGroupThirdRank > simKoreaRank) {
+        if (simGroupThirdRank > simTeamRank) {
           goodScores.push({ h, a });
         } else {
           badScores.push({ h, a });
@@ -157,12 +179,12 @@ export function calcBingo(matches: MatchResult[]): BingoData {
 
   let message: string;
   if (pendingCount === 0) {
-    message = fulfilledCount >= 3 ? "조건 충족! 32강 진출!" : "아쉽지만 조건 미달...";
+    message = fulfilledCount >= 3 ? `조건 충족! ${teamName} 32강 진출!` : "아쉽지만 조건 미달...";
   } else if (needed === 0) {
     message = `이미 ${fulfilledCount}개 달성! 32강 유력!`;
   } else {
     message = `남은 ${pendingCount}경기 중 ${needed}개만 더!`;
   }
 
-  return { cells, fulfilledCount, totalCount: 9, message };
+  return { cells, fulfilledCount, totalCount: cells.length, message };
 }

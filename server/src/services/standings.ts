@@ -1,4 +1,4 @@
-import { GROUPS, TEAMS, KOREA_CODE, type MatchResult, type GroupStanding, type ThirdPlaceEntry } from "../data/worldcup2026";
+import { GROUPS, type MatchResult, type GroupStanding, type ThirdPlaceEntry } from "../data/worldcup2026";
 
 export function calcGroupStandings(matches: MatchResult[], group: string): GroupStanding[] {
   const teamCodes = GROUPS[group];
@@ -91,8 +91,38 @@ export function getThirdPlaceTable(allStandings: Record<string, GroupStanding[]>
   return thirds;
 }
 
-export function isKoreaQualified(thirdPlaceTable: ThirdPlaceEntry[]): { qualified: boolean; position: number } {
-  const koreaIdx = thirdPlaceTable.findIndex(e => e.team === KOREA_CODE);
-  if (koreaIdx === -1) return { qualified: false, position: -1 };
-  return { qualified: koreaIdx < 8, position: koreaIdx + 1 };
+/**
+ * 팀의 32강 진출 여부를 정확하게 판정.
+ * 조 1~2위는 무조건 자동 진출, 3위는 전체 3위팀 중 상위 8개만 진출, 4위는 탈락.
+ * (3위팀 비교표에 없다는 이유만으로 "탈락"으로 잘못 판정하지 않도록 조 순위를 먼저 확인한다)
+ */
+export function isTeamQualified(
+  allStandings: Record<string, GroupStanding[]>,
+  thirdPlaceTable: ThirdPlaceEntry[],
+  teamCode: string
+): { qualified: boolean; groupPosition: number; thirdPlaceRank: number | null; group: string } {
+  let group = "";
+  let groupPosition = 0;
+
+  for (const [g, standings] of Object.entries(allStandings)) {
+    const entry = standings.find(s => s.team === teamCode);
+    if (entry) {
+      group = g;
+      groupPosition = entry.position;
+      break;
+    }
+  }
+
+  if (groupPosition === 1 || groupPosition === 2) {
+    return { qualified: true, groupPosition, thirdPlaceRank: null, group };
+  }
+
+  if (groupPosition === 3) {
+    const idx = thirdPlaceTable.findIndex(e => e.team === teamCode);
+    const thirdPlaceRank = idx === -1 ? null : idx + 1;
+    return { qualified: thirdPlaceRank !== null && thirdPlaceRank <= 8, groupPosition, thirdPlaceRank, group };
+  }
+
+  // groupPosition === 4 (또는 팀을 찾지 못함)
+  return { qualified: false, groupPosition, thirdPlaceRank: null, group };
 }

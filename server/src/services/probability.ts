@@ -1,6 +1,6 @@
-import { KOREA_CODE, type MatchResult } from "../data/worldcup2026";
+import { type MatchResult } from "../data/worldcup2026";
 import { getElo, eloToProbs } from "../data/elo-ratings";
-import { calcAllGroupStandings, getThirdPlaceTable, isKoreaQualified } from "./standings";
+import { calcAllGroupStandings, getThirdPlaceTable, isTeamQualified } from "./standings";
 
 // 현실적 스코어 분포 (가중치)
 const HOME_WIN_SCORES: [number, number, number][] = [
@@ -40,30 +40,34 @@ function pickScore(match: MatchResult): [number, number] {
   return [pool[0][0], pool[0][1]];
 }
 
-export function calcQualificationProbability(matches: MatchResult[]): {
+export function calcQualificationProbability(matches: MatchResult[], teamCode: string): {
   probability: number;
   totalCombinations: number;
   qualifyCombinations: number;
-  koreaPosition: number;
+  groupPosition: number;
+  thirdPlaceRank: number | null;
 } {
   const remaining = matches.filter(m => m.status !== "FINISHED");
 
   if (remaining.length === 0) {
     const allStandings = calcAllGroupStandings(matches);
     const thirdTable = getThirdPlaceTable(allStandings, matches);
-    const result = isKoreaQualified(thirdTable);
+    const result = isTeamQualified(allStandings, thirdTable, teamCode);
     return {
       probability: result.qualified ? 100 : 0,
       totalCombinations: 1,
       qualifyCombinations: result.qualified ? 1 : 0,
-      koreaPosition: result.position,
+      groupPosition: result.groupPosition,
+      thirdPlaceRank: result.thirdPlaceRank,
     };
   }
 
   const SAMPLE_SIZE = remaining.length <= 6 ? 50000 : 20000;
 
   let qualify = 0;
-  let positionSum = 0;
+  let groupPositionSum = 0;
+  let thirdPlaceRankSum = 0;
+  let thirdPlaceRankCount = 0;
 
   for (let i = 0; i < SAMPLE_SIZE; i++) {
     const simMatches = matches.map(m => {
@@ -74,18 +78,21 @@ export function calcQualificationProbability(matches: MatchResult[]): {
 
     const allStandings = calcAllGroupStandings(simMatches);
     const thirdTable = getThirdPlaceTable(allStandings, simMatches);
-    const result = isKoreaQualified(thirdTable);
+    const result = isTeamQualified(allStandings, thirdTable, teamCode);
 
     if (result.qualified) qualify++;
-    positionSum += result.position;
+    groupPositionSum += result.groupPosition;
+    if (result.thirdPlaceRank !== null) {
+      thirdPlaceRankSum += result.thirdPlaceRank;
+      thirdPlaceRankCount++;
+    }
   }
-
-  const avgPosition = Math.round(positionSum / SAMPLE_SIZE);
 
   return {
     probability: Math.round((qualify / SAMPLE_SIZE) * 100),
     totalCombinations: SAMPLE_SIZE,
     qualifyCombinations: qualify,
-    koreaPosition: avgPosition,
+    groupPosition: Math.round(groupPositionSum / SAMPLE_SIZE),
+    thirdPlaceRank: thirdPlaceRankCount > 0 ? Math.round(thirdPlaceRankSum / thirdPlaceRankCount) : null,
   };
 }

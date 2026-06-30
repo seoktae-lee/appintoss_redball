@@ -1,19 +1,45 @@
 import { useState } from "react";
 import { LoginPage } from "./pages/LoginPage";
-import { QualifyTab } from "./pages/QualifyTab";
-import { MatchesTab } from "./pages/MatchesTab";
+import { TeamSelectPage } from "./pages/TeamSelectPage";
+import { BracketTab } from "./pages/BracketTab";
+import { ProbabilityTab } from "./pages/ProbabilityTab";
+import { PredictTab } from "./pages/PredictTab";
 import { useWorldCup } from "./hooks/useWorldCup";
 
-type Tab = "qualify" | "matches";
+type Tab = "bracket" | "odds" | "predict";
 
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("redball_token"));
-  const [tab, setTab] = useState<Tab>("qualify");
-  const { data, loading, error, refresh } = useWorldCup();
+  const [myTeam, setMyTeam] = useState<string | null>(() => localStorage.getItem("redball_my_team"));
+  const [tab, setTab] = useState<Tab>("bracket");
+  const { refresh } = useWorldCup(myTeam);
 
   if (!loggedIn) {
-    return <LoginPage onLogin={() => setLoggedIn(true)} />;
+    return (
+      <LoginPage
+        onLogin={(user) => {
+          setLoggedIn(true);
+          if (user.myTeam) {
+            localStorage.setItem("redball_my_team", user.myTeam);
+            setMyTeam(user.myTeam);
+          }
+        }}
+      />
+    );
   }
+
+  if (!myTeam) {
+    return (
+      <TeamSelectPage
+        onSelect={(teamCode) => {
+          localStorage.setItem("redball_my_team", teamCode);
+          setMyTeam(teamCode);
+        }}
+      />
+    );
+  }
+
+  const myTeamName = data?.teams[myTeam]?.name || myTeam;
 
   return (
     <div style={{ minHeight: "100vh", background: "#0F0F1E", display: "flex", flexDirection: "column" }}>
@@ -21,39 +47,40 @@ export default function App() {
       <div style={{ padding: "12px 20px 8px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           <h1 style={{ fontSize: 20, fontWeight: 800, color: "var(--red)", letterSpacing: -.5 }}>REDBALL</h1>
-          <small style={{ fontSize: 11, color: "var(--w40)" }}>2026 FIFA 북중미 월드컵</small>
+          <small style={{ fontSize: 11, color: "var(--w40)" }}>2026 FIFA 북중미 월드컵 · {myTeamName} 응원 중</small>
         </div>
-        <div style={{ textAlign: "right" }} onClick={refresh}>
-          <small style={{ fontSize: 11, color: "var(--w40)" }}>업데이트</small><br/>
-          <span style={{ fontSize: 12, color: "var(--w60)" }}>
-            {data ? timeAgo(data.lastUpdated) : "..."}
-          </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button
+            onClick={() => {
+              localStorage.removeItem("redball_my_team");
+              setMyTeam(null);
+            }}
+            style={{
+              fontSize: 11, color: "var(--w60)", background: "rgba(255,255,255,.08)",
+              border: "none", borderRadius: 8, padding: "5px 9px", cursor: "pointer", fontFamily: "inherit",
+            }}
+          >팀 변경</button>
+          <div style={{ textAlign: "right" }} onClick={refresh}>
+            <small style={{ fontSize: 11, color: "var(--w40)" }}>업데이트</small><br/>
+            <span style={{ fontSize: 12, color: "var(--w60)" }}>
+              {data ? timeAgo(data.lastUpdated) : "..."}
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
       <div style={{ display: "flex", padding: "0 16px", borderBottom: "1px solid var(--w20)" }}>
-        <TabButton label="진출 가능성" active={tab === "qualify"} onClick={() => setTab("qualify")} />
-        <TabButton label="대진표 · 경기" active={tab === "matches"} onClick={() => setTab("matches")} />
+        <TabButton label="대진표" active={tab === "bracket"} onClick={() => setTab("bracket")} />
+        <TabButton label="우승 확률" active={tab === "odds"} onClick={() => setTab("odds")} />
+        <TabButton label="내 예측" active={tab === "predict"} onClick={() => setTab("predict")} />
       </div>
 
       {/* Content */}
       <div style={{ flex: 1, overflowY: "auto" }}>
-        {loading && !data && (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--w40)" }}>
-            로딩 중...
-          </div>
-        )}
-        {error && !data && (
-          <div style={{ padding: 20, textAlign: "center", color: "var(--red)" }}>
-            {error}<br/>
-            <button onClick={refresh} style={{ marginTop: 12, padding: "8px 16px", background: "var(--red)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer" }}>
-              다시 시도
-            </button>
-          </div>
-        )}
-        {data && tab === "qualify" && <QualifyTab data={data} />}
-        {data && tab === "matches" && <MatchesTab data={data} />}
+        {tab === "bracket" && <BracketTab myTeam={myTeam ?? undefined} />}
+        {tab === "odds" && <ProbabilityTab myTeam={myTeam ?? undefined} />}
+        {tab === "predict" && <PredictTab />}
       </div>
     </div>
   );

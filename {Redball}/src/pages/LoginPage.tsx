@@ -7,7 +7,7 @@ import logo from "../assets/logo.png";
 const DEV_BYPASS = import.meta.env.VITE_DEV_BYPASS_AIT === "true";
 
 interface Props {
-  onLogin: () => void;
+  onLogin: (user: LoginResponse["user"]) => void;
 }
 
 export function LoginPage({ onLogin }: Props) {
@@ -49,7 +49,7 @@ export function LoginPage({ onLogin }: Props) {
         } catch {}
       }
 
-      onLogin();
+      onLogin(response.user);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       setErrorMsg(msg);
@@ -139,7 +139,7 @@ export function LoginPage({ onLogin }: Props) {
         opacity: ready ? 1 : 0,
         animation: ready ? "fadeUp 0.5s ease-out 0.2s both" : "none",
       }}>
-        대한민국 32강 진출 경우의 수<br/>실시간으로 확인하세요
+        내가 응원하는 팀의 32강 진출 경우의 수<br/>실시간으로 확인하세요
       </p>
 
       {errorMsg && (

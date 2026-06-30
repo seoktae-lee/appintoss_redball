@@ -53,9 +53,10 @@ export interface WorldCupData {
   matches: MatchResult[];
   allStandings: Record<string, GroupStanding[]>;
   thirdPlaceTable: ThirdPlaceEntry[];
-  koreaStatus: {
+  teamStatus: {
     qualified: boolean;
     position: number;
+    groupPosition: number;
     group: string;
     code: string;
   };
@@ -79,5 +80,51 @@ export interface WorldCupData {
 
 export interface LoginResponse {
   token: string;
-  user: { id: string; tossId: string; nickname: string };
+  user: { id: string; nickname: string; myTeam: string | null };
+}
+
+export interface TeamsResponse {
+  teams: Record<string, Team>;
+  groups: Record<string, string[]>;
+}
+
+export interface KnockoutMatch {
+  id: string;
+  round: "R32" | "R16" | "QF" | "SF" | "F";
+  slot: number;
+  bracketSide: "L" | "R";
+  homeTeam: string | null;
+  awayTeam: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: "SCHEDULED" | "IN_PLAY" | "FINISHED";
+  date: string;
+  homeFromMatch: string | null;
+  awayFromMatch: string | null;
+}
+
+export interface BracketResponse {
+  bracket: KnockoutMatch[];
+  teams: Record<string, Team>;
+}
+
+export interface TeamTournamentOdds {
+  teamCode: string;
+  winPct: number;
+  finalPct: number;
+  semiFinalPct: number;
+  quarterFinalPct: number;
+  roundOf16Pct: number;
+}
+
+export interface TournamentOddsResponse {
+  odds: TeamTournamentOdds[];
+  teams: Record<string, Team>;
+  calculatedAt: string;
+}
+
+export interface PredictResponse {
+  predictions: Record<string, string>;
+  correctCount: number;
+  totalCount: number;
 }

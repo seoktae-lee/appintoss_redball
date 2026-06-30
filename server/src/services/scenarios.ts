@@ -1,5 +1,5 @@
-import { TEAMS, KOREA_CODE, type MatchResult } from "../data/worldcup2026";
-import { calcAllGroupStandings, getThirdPlaceTable } from "./standings";
+import { TEAMS, type MatchResult } from "../data/worldcup2026";
+import { calcAllGroupStandings, getThirdPlaceTable, isTeamQualified } from "./standings";
 import { getElo, eloToProbs } from "../data/elo-ratings";
 
 export interface Scenario {
@@ -16,16 +16,25 @@ const SCORES: [number, number][] = [
   [0, 1], [0, 2], [1, 2], [0, 3],
 ];
 
-function getKoreaRank(matches: MatchResult[]): number {
-  const standings = calcAllGroupStandings(matches);
-  const third = getThirdPlaceTable(standings, matches);
-  const idx = third.findIndex(e => e.team === KOREA_CODE);
-  return idx === -1 ? 99 : idx + 1;
+/**
+ * 팀의 "진출 강도"를 0(안전/자동진출)~99(탈락권) 스케일로 환산.
+ * 조 1~2위는 0(안전), 조 4위는 99(위험), 3위는 3위팀 비교표 순위(1~12)를 그대로 사용.
+ */
+function getTeamStrength(matches: MatchResult[], teamCode: string): number {
+  const allStandings = calcAllGroupStandings(matches);
+  const thirdTable = getThirdPlaceTable(allStandings, matches);
+  const result = isTeamQualified(allStandings, thirdTable, teamCode);
+
+  if (result.groupPosition === 1 || result.groupPosition === 2) return 0;
+  if (result.groupPosition === 4) return 99;
+  return result.thirdPlaceRank ?? 50;
 }
 
-export function calcScenarios(matches: MatchResult[]): Scenario[] {
+export function calcScenarios(matches: MatchResult[], teamCode: string): Scenario[] {
   const remaining = matches.filter(m => m.status !== "FINISHED");
   if (remaining.length === 0) return [];
+
+  const teamName = TEAMS[teamCode]?.name || teamCode;
 
   // 같은 조 경기를 그룹핑
   const groupedRemaining: Record<string, MatchResult[]> = {};
@@ -34,7 +43,7 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
     groupedRemaining[m.group].push(m);
   }
 
-  const currentRank = getKoreaRank(matches);
+  const currentRank = getTeamStrength(matches, teamCode);
   const scenarios: Scenario[] = [];
 
   for (const match of remaining) {
@@ -60,7 +69,7 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
           }
           return m;
         });
-        const rank = getKoreaRank(sim);
+        const rank = getTeamStrength(sim, teamCode);
         allRanks.push(rank);
         if (h > a) homeWinRanks.push(rank);
         else if (h === a) drawRanks.push(rank);
@@ -73,7 +82,7 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
       scenarios.push({
         group: match.group,
         match: { home: match.homeTeam, away: match.awayTeam, date: match.date, status: match.status },
-        conditions: [`어떤 결과든 한국 순위 변동 없음 (${currentRank}위 유지)`],
+        conditions: [`어떤 결과든 ${teamName} 순위 변동 없음`],
         impact: "helpful",
       });
       continue;
@@ -85,15 +94,17 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
       if (ranks.length === 0) return "";
       const best = Math.min(...ranks);
       const worst = Math.max(...ranks);
-      const rankStr = best === worst ? `${best}위` : `${best}~${worst}위`;
+      const rankStr = (n: number) => (n === 0 ? "자동진출" : n >= 99 ? "탈락" : `${n}위`);
+      const rangeStr = best === worst ? rankStr(best) : `${rankStr(best)}~${rankStr(worst)}`;
 
-      if (worst > 8) {
-        if (best > 8) return `❌ ${name} → 한국 ${rankStr} (진출 위험)`;
-        return `⚠️ ${name} → 한국 ${rankStr} (결과에 따라 탈락 가능)`;
+      if (worst >= 99) {
+        if (best >= 99) return `❌ ${name} → ${teamName} ${rangeStr} (진출 위험)`;
+        return `⚠️ ${name} → ${teamName} ${rangeStr} (결과에 따라 탈락 가능)`;
       }
-      if (best < currentRank) return `✅ ${name} → 한국 ${rankStr} (유리)`;
-      if (worst > currentRank) return `⚠️ ${name} → 한국 ${rankStr}`;
-      return `✅ ${name} → 한국 ${rankStr} 유지`;
+      if (worst > 8) return `⚠️ ${name} → ${teamName} ${rangeStr} (결과에 따라 탈락 가능)`;
+      if (best < currentRank) return `✅ ${name} → ${teamName} ${rangeStr} (유리)`;
+      if (worst > currentRank) return `⚠️ ${name} → ${teamName} ${rangeStr}`;
+      return `✅ ${name} → ${teamName} ${rangeStr} 유지`;
     }
 
     const homeDesc = describeOutcome(`${homeName} 승리`, homeWinRanks);
@@ -106,14 +117,14 @@ export function calcScenarios(matches: MatchResult[]): Scenario[] {
 
     // 가장 유리한 결과 표시
     const allResults = [
-      { label: `${homeName} 승리`, best: homeWinRanks.length > 0 ? Math.min(...homeWinRanks) : 99 },
-      { label: "무승부", best: drawRanks.length > 0 ? Math.min(...drawRanks) : 99 },
-      { label: `${awayName} 승리`, best: awayWinRanks.length > 0 ? Math.min(...awayWinRanks) : 99 },
+      { label: `${homeName} 승리`, best: homeWinRanks.length > 0 ? Math.min(...homeWinRanks) : 999 },
+      { label: "무승부", best: drawRanks.length > 0 ? Math.min(...drawRanks) : 999 },
+      { label: `${awayName} 승리`, best: awayWinRanks.length > 0 ? Math.min(...awayWinRanks) : 999 },
     ];
     const bestResult = allResults.reduce((a, b) => a.best <= b.best ? a : b);
     const worstResult = allResults.reduce((a, b) => a.best >= b.best ? a : b);
     if (bestResult.best !== worstResult.best) {
-      conditions.push(`💡 ${bestResult.label}가 한국에 가장 유리`);
+      conditions.push(`💡 ${bestResult.label}가 ${teamName}에 가장 유리`);
     }
 
     if (conditions.length === 0) continue;

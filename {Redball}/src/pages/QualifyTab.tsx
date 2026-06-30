@@ -8,15 +8,19 @@ interface Props { data: WorldCupData }
 const FLAG_URL = (code: string) => `https://flagcdn.com/w40/${code}.png`;
 
 export function QualifyTab({ data }: Props) {
-  const { probability, koreaStatus, thirdPlaceTable, teams } = data;
+  const { probability, teamStatus, thirdPlaceTable, teams } = data;
+  const myTeam = teams[teamStatus.code];
+  const myTeamName = myTeam?.name || teamStatus.code;
+  const myStanding = data.allStandings[teamStatus.group]?.find(s => s.team === teamStatus.code);
+
   const [showThirdTable, setShowThirdTable] = useState(false);
   const [showBingo, setShowBingo] = useState(false);
   const [showScenarios, setShowScenarios] = useState(false);
 
-  const statusLabel = koreaStatus.qualified
-    ? probability === 100 ? "32강 진출 확정" : "진출권 안에 있음"
+  const statusLabel = teamStatus.qualified
+    ? probability === 100 ? "32강 진출 확정" : teamStatus.groupPosition <= 2 ? "조 상위권 (자동 진출권)" : "진출권 안에 있음"
     : "진출 위험";
-  const statusColor = koreaStatus.qualified ? "var(--gold)" : "var(--red)";
+  const statusColor = teamStatus.qualified ? "var(--gold)" : "var(--red)";
 
   return (
     <div style={{ paddingBottom: 20 }}>
@@ -26,40 +30,44 @@ export function QualifyTab({ data }: Props) {
         background: "linear-gradient(135deg, #1a1a2e 0%, #2a1a1e 100%)",
         border: "1px solid rgba(228,0,43,.2)", position: "relative", overflow: "hidden",
       }}>
-        {/* 태극 문양 */}
-        <svg style={{ position: "absolute", top: "50%", right: 20, transform: "translateY(-55%) rotate(-90deg)", opacity: 0.12 }} width="90" height="90" viewBox="0 0 200 200">
-          <path d="M100 10 A90 90 0 0 1 100 190 A45 45 0 0 0 100 100 A45 45 0 0 1 100 10Z" fill="#E4002B"/>
-          <path d="M100 190 A90 90 0 0 1 100 10 A45 45 0 0 0 100 100 A45 45 0 0 1 100 190Z" fill="#0033A0"/>
-        </svg>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,.5)", marginBottom: 6 }}>대한민국 32강 진출 확률</div>
+        {/* 깃발 워터마크 */}
+        {myTeam && (
+          <img src={FLAG_URL(myTeam.flag)} style={{
+            position: "absolute", top: "50%", right: 16, transform: "translateY(-50%)",
+            width: 90, height: 64, objectFit: "cover", borderRadius: 6, opacity: 0.12,
+          }} />
+        )}
+        <div style={{ fontSize: 13, color: "rgba(255,255,255,.5)", marginBottom: 6 }}>{myTeamName} 32강 진출 확률</div>
         <div style={{ fontSize: 56, fontWeight: 800, color: "#E4002B", lineHeight: 1 }}>
           {probability}<span style={{ fontSize: 26, color: "rgba(255,255,255,.5)" }}>%</span>
         </div>
         <div style={{
           display: "inline-flex", padding: "5px 12px", borderRadius: 6,
           fontSize: 13, fontWeight: 700, marginTop: 10, marginBottom: 12,
-          background: koreaStatus.qualified ? "rgba(212,175,55,.15)" : "rgba(228,0,43,.15)",
+          background: teamStatus.qualified ? "rgba(212,175,55,.15)" : "rgba(228,0,43,.15)",
           color: statusColor,
         }}>{statusLabel}</div>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,.5)" }}>
-          A조 3위 · 상위 8개 3위 팀 진출 시 32강
+          {teamStatus.group}조 {teamStatus.groupPosition > 0 ? `${teamStatus.groupPosition}위` : ""} · 조 1~2위 자동 진출, 상위 8개 3위 팀 진출
         </div>
-        <div style={{
-          display: "flex", gap: 16, marginTop: 14, paddingTop: 14,
-          borderTop: "1px solid rgba(255,255,255,.15)",
-        }}>
-          {[
-            { val: "3", label: "승점" },
-            { val: "-1", label: "골득실" },
-            { val: "2", label: "득점" },
-            { val: "1승 2패", label: "전적" },
-          ].map(s => (
-            <div key={s.label} style={{ textAlign: "center", flex: 1 }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{s.val}</div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 3 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
+        {myStanding && (
+          <div style={{
+            display: "flex", gap: 16, marginTop: 14, paddingTop: 14,
+            borderTop: "1px solid rgba(255,255,255,.15)",
+          }}>
+            {[
+              { val: String(myStanding.points), label: "승점" },
+              { val: myStanding.goalDifference > 0 ? `+${myStanding.goalDifference}` : String(myStanding.goalDifference), label: "골득실" },
+              { val: String(myStanding.goalsFor), label: "득점" },
+              { val: `${myStanding.won}승 ${myStanding.draw}무 ${myStanding.lost}패`, label: "전적" },
+            ].map(s => (
+              <div key={s.label} style={{ textAlign: "center", flex: 1 }}>
+                <div style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{s.val}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,.4)", marginTop: 3 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 3x3 빙고판 (토글) */}
@@ -95,7 +103,7 @@ export function QualifyTab({ data }: Props) {
           }}>
             <div style={{ textAlign: "center", marginBottom: 12 }}>
               <p style={{ fontSize: 13, color: "var(--gold)" }}>
-                9가지 중 <span style={{ fontWeight: 800, fontSize: 15, color: "var(--red)" }}>3개</span>만 맞으면 한국 32강 진출!
+                9가지 중 <span style={{ fontWeight: 800, fontSize: 15, color: "var(--red)" }}>3개</span>만 맞으면 {myTeamName} 32강 진출!
               </p>
             </div>
 
@@ -196,7 +204,7 @@ export function QualifyTab({ data }: Props) {
             <tbody>
               {thirdPlaceTable.map((entry, idx) => {
                 const team = teams[entry.team];
-                const isKorea = entry.team === "KOR";
+                const isMyTeam = entry.team === teamStatus.code;
                 const isInCutline = idx < 8;
                 const isCutlineBorder = idx === 7;
                 const opacity = idx >= 8 ? 0.5 : 1;
@@ -204,7 +212,7 @@ export function QualifyTab({ data }: Props) {
                 return (
                   <tr key={entry.team} style={{
                     opacity,
-                    background: isKorea ? "var(--red-bg)" : "transparent",
+                    background: isMyTeam ? "var(--red-bg)" : "transparent",
                     borderBottom: isCutlineBorder ? "2px solid var(--red)" : "1px solid rgba(255,255,255,.05)",
                   }}>
                     <td style={{ padding: "8px 4px" }}>
@@ -215,17 +223,17 @@ export function QualifyTab({ data }: Props) {
                         color: isInCutline ? (isCutlineBorder ? "var(--red)" : "var(--teal)") : "var(--w40)",
                       }}>{idx + 1}</span>
                     </td>
-                    <td style={{ padding: "8px 4px", color: isKorea ? "var(--red)" : "var(--w80)", fontWeight: isKorea ? 700 : 400 }}>
+                    <td style={{ padding: "8px 4px", color: isMyTeam ? "var(--red)" : "var(--w80)", fontWeight: isMyTeam ? 700 : 400 }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
                         <img src={FLAG_URL(team?.flag || "")} style={{ width: 18, height: 13, borderRadius: 2, objectFit: "cover" }} />
                         {team?.name || entry.team} ({entry.group})
                       </span>
                     </td>
-                    <td style={{ padding: "8px 4px", textAlign: "center", fontWeight: 700, color: isKorea ? "var(--red)" : "var(--w80)" }}>{entry.points}</td>
-                    <td style={{ padding: "8px 4px", textAlign: "center", color: isKorea ? "var(--red)" : "var(--w80)" }}>{entry.goalDifference > 0 ? `+${entry.goalDifference}` : entry.goalDifference}</td>
-                    <td style={{ padding: "8px 4px", textAlign: "center", color: isKorea ? "var(--red)" : "var(--w80)" }}>{entry.goalsFor}</td>
-                    <td style={{ padding: "8px 4px", textAlign: "center", fontSize: 10, color: isKorea ? "var(--gold)" : entry.status === "FINISHED" ? "var(--teal)" : "var(--gold)" }}>
-                      {isKorea ? "대기 중" : entry.status === "FINISHED" ? "확정" : "진행 중"}
+                    <td style={{ padding: "8px 4px", textAlign: "center", fontWeight: 700, color: isMyTeam ? "var(--red)" : "var(--w80)" }}>{entry.points}</td>
+                    <td style={{ padding: "8px 4px", textAlign: "center", color: isMyTeam ? "var(--red)" : "var(--w80)" }}>{entry.goalDifference > 0 ? `+${entry.goalDifference}` : entry.goalDifference}</td>
+                    <td style={{ padding: "8px 4px", textAlign: "center", color: isMyTeam ? "var(--red)" : "var(--w80)" }}>{entry.goalsFor}</td>
+                    <td style={{ padding: "8px 4px", textAlign: "center", fontSize: 10, color: isMyTeam ? "var(--gold)" : entry.status === "FINISHED" ? "var(--teal)" : "var(--gold)" }}>
+                      {isMyTeam ? "대기 중" : entry.status === "FINISHED" ? "확정" : "진행 중"}
                     </td>
                   </tr>
                 );
@@ -233,18 +241,20 @@ export function QualifyTab({ data }: Props) {
             </tbody>
           </table>
 
-          {/* 한국 상태 요약 */}
+          {/* 내 팀 상태 요약 */}
           <div style={{
             marginTop: 10, padding: "8px 10px", background: "var(--red-bg)",
             borderRadius: 8, display: "flex", alignItems: "center", gap: 6,
           }}>
-            <span style={{ fontSize: 18 }}>🇰🇷</span>
+            <img src={FLAG_URL(myTeam?.flag || "")} style={{ width: 22, height: 16, borderRadius: 2, objectFit: "cover" }} />
             <div>
               <div style={{ fontSize: 12, fontWeight: 700, color: "var(--red)" }}>
-                현재 {koreaStatus.position}위 — {koreaStatus.qualified ? "32강 진출권 안에 있음" : "진출권 밖"}
+                {teamStatus.groupPosition <= 2 && teamStatus.groupPosition > 0
+                  ? `현재 조 ${teamStatus.groupPosition}위 — 32강 자동 진출권`
+                  : `현재 3위팀 중 ${teamStatus.position}위 — ${teamStatus.qualified ? "32강 진출권 안에 있음" : "진출권 밖"}`}
               </div>
               <div style={{ fontSize: 11, color: "var(--w60)" }}>
-                8위까지 진출 · 남은 경기 결과에 따라 변동
+                조 1~2위 자동 진출 · 3위는 8위까지 진출 · 남은 경기 결과에 따라 변동
               </div>
             </div>
           </div>
