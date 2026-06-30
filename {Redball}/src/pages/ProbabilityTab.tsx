@@ -22,7 +22,6 @@ export function ProbabilityTab({ myTeam }: { myTeam?: string }) {
   if (!data || data.odds.length === 0) return <div style={{ padding: 20, textAlign: "center", color: "var(--w40)" }}>32강 대진이 확정되면 계산할게요</div>;
 
   const top3 = data.odds.slice(0, 3);
-  const rest = data.odds.slice(3);
 
   return (
     <div style={{ paddingBottom: 20 }}>

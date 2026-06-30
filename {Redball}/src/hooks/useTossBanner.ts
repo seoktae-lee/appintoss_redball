@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { TossAds, type TossAdsAttachBannerOptions } from "@apps-in-toss/web-framework";
 
+const DEV_BYPASS = import.meta.env.VITE_DEV_BYPASS_AIT === "true";
+
 export function useTossBanner() {
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
 
   useEffect(() => {
-    if (isInitialized) return;
+    if (isInitialized || DEV_BYPASS) return;
     if (!TossAds.initialize.isSupported()) {
       setIsSupported(false);
       return;
