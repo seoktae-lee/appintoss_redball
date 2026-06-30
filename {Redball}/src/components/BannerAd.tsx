@@ -26,5 +26,5 @@ export function BannerAd({ adGroupId }: { adGroupId: string }) {
 
   if (DEV_BYPASS || !isSupported || adFailed) return null;
 
-  return <div ref={containerRef} style={{ width: "100%", height: 96, margin: "0 16px" }} />;
+  return <div ref={containerRef} style={{ width: "100%", height: 96, padding: "0 16px", boxSizing: "border-box" }} />;
 }
