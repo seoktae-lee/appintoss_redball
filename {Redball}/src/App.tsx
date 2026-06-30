@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { ConfirmDialog } from "@toss/tds-mobile";
 import { LoginPage } from "./pages/LoginPage";
 import { TeamSelectPage } from "./pages/TeamSelectPage";
 import { BracketTab } from "./pages/BracketTab";
 import { ProbabilityTab } from "./pages/ProbabilityTab";
 import { PredictTab } from "./pages/PredictTab";
 import { useWorldCup } from "./hooks/useWorldCup";
+import { api, clearAuth } from "./api/client";
 
 type Tab = "bracket" | "odds" | "predict";
 
@@ -12,7 +14,16 @@ export default function App() {
   const [loggedIn, setLoggedIn] = useState(() => !!localStorage.getItem("redball_token"));
   const [myTeam, setMyTeam] = useState<string | null>(() => localStorage.getItem("redball_my_team"));
   const [tab, setTab] = useState<Tab>("bracket");
+  const [showWithdraw, setShowWithdraw] = useState(false);
   const { data, refresh } = useWorldCup(myTeam);
+
+  const handleWithdraw = async () => {
+    try { await api.delete("/api/auth/me"); } catch {}
+    clearAuth();
+    localStorage.removeItem("redball_my_team");
+    setMyTeam(null);
+    setLoggedIn(false);
+  };
 
   if (!loggedIn) {
     return (
@@ -88,7 +99,21 @@ export default function App() {
         {tab === "bracket" && <BracketTab myTeam={myTeam ?? undefined} />}
         {tab === "odds" && <ProbabilityTab myTeam={myTeam ?? undefined} />}
         {tab === "predict" && <PredictTab />}
+
+        <button onClick={() => setShowWithdraw(true)} style={{
+          width: "100%", marginTop: 8, padding: "12px 0 28px", border: "none", background: "none",
+          color: "var(--w40)", fontSize: 12, cursor: "pointer", textDecoration: "underline", fontFamily: "inherit",
+        }}>서비스 탈퇴</button>
       </div>
+
+      <ConfirmDialog
+        open={showWithdraw}
+        title={<ConfirmDialog.Title>정말 탈퇴할까요?</ConfirmDialog.Title>}
+        description={<ConfirmDialog.Description>탈퇴하면 응원팀 설정과 예측 기록이 모두 삭제되고 되돌릴 수 없어요.</ConfirmDialog.Description>}
+        cancelButton={<ConfirmDialog.CancelButton onClick={() => setShowWithdraw(false)}>취소</ConfirmDialog.CancelButton>}
+        confirmButton={<ConfirmDialog.ConfirmButton color="danger" onClick={async () => { setShowWithdraw(false); await handleWithdraw(); }}>탈퇴하기</ConfirmDialog.ConfirmButton>}
+        onClose={() => setShowWithdraw(false)}
+      />
     </div>
   );
 }
