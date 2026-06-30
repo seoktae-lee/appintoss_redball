@@ -60,7 +60,7 @@ export function calcTournamentOdds(bracket: KnockoutMatch[], samples = 20000): T
     // 라운드 순서대로 처리
     const ROUND_ORDER: KnockoutMatch["round"][] = ["R32", "R16", "QF", "SF", "F"];
     const ROUND_STAT: Record<string, keyof (typeof counts)[string]> = {
-      R32: "r16", R16: "r16", QF: "qf", SF: "sf", F: "final"
+      R16: "r16", QF: "qf", SF: "sf", F: "final"
     };
 
     for (const round of ROUND_ORDER) {
@@ -124,19 +124,78 @@ export function calcTournamentOdds(bracket: KnockoutMatch[], samples = 20000): T
   return result.sort((a, b) => b.winPct - a.winPct);
 }
 
-/**
- * 특정 팀의 다음 경기 + 이후 예상 경로 반환
- */
-export function getTeamPath(bracket: KnockoutMatch[], teamCode: string): KnockoutMatch[] {
-  const path: KnockoutMatch[] = [];
-  const winnerMap = buildWinnerMap(bracket);
+const SCENARIO_ROUND_ORDER: KnockoutMatch["round"][] = ["R32", "R16", "QF", "SF", "F"];
 
-  for (const m of bracket) {
-    const home = m.homeTeam ?? (m.homeFromMatch ? winnerMap.get(m.homeFromMatch) ?? null : null);
-    const away = m.awayTeam ?? (m.awayFromMatch ? winnerMap.get(m.awayFromMatch) ?? null : null);
-    if (home === teamCode || away === teamCode) {
-      path.push(m);
-    }
+export interface OpponentCandidate {
+  teamCode: string;
+  prob: number; // 0~100
+  fromMatchId: string;
+}
+
+export interface NextMatchScenario {
+  inBracket: boolean;
+  eliminated?: { round: KnockoutMatch["round"]; opponent: string; homeScore: number; awayScore: number };
+  nextMatch?: {
+    id: string;
+    round: KnockoutMatch["round"];
+    date: string;
+    opponent: string | null; // 미확정이면 null, candidates 참고
+    candidates: OpponentCandidate[];
+  };
+}
+
+/**
+ * "경우의 수" 핵심 기능 — 내 팀이 다음 라운드에서 만날 수 있는 상대를 알려준다.
+ * 상대가 아직 결정되지 않았다면(이전 매치 미종료) ELO 기반 승리 확률로 후보를 보여준다.
+ */
+export function getNextMatchScenario(bracket: KnockoutMatch[], teamCode: string): NextMatchScenario {
+  const myMatches = bracket.filter(m => m.homeTeam === teamCode || m.awayTeam === teamCode);
+  if (myMatches.length === 0) return { inBracket: false };
+
+  const lost = myMatches.find(m =>
+    m.status === "FINISHED" && m.homeScore !== null && m.awayScore !== null &&
+    ((m.homeTeam === teamCode && m.homeScore < m.awayScore) ||
+     (m.awayTeam === teamCode && m.awayScore < m.homeScore))
+  );
+  if (lost) {
+    const opponent = lost.homeTeam === teamCode ? lost.awayTeam! : lost.homeTeam!;
+    return {
+      inBracket: true,
+      eliminated: { round: lost.round, opponent, homeScore: lost.homeScore!, awayScore: lost.awayScore! },
+    };
   }
-  return path;
+
+  const next = myMatches
+    .filter(m => m.status !== "FINISHED")
+    .sort((a, b) => SCENARIO_ROUND_ORDER.indexOf(a.round) - SCENARIO_ROUND_ORDER.indexOf(b.round))[0];
+  if (!next) return { inBracket: true };
+
+  const opponentSide: "homeTeam" | "awayTeam" = next.homeTeam === teamCode ? "awayTeam" : "homeTeam";
+  const opponentCode = next[opponentSide];
+
+  if (opponentCode) {
+    return {
+      inBracket: true,
+      nextMatch: { id: next.id, round: next.round, date: next.date, opponent: opponentCode, candidates: [] },
+    };
+  }
+
+  // 상대가 아직 미정 — 직전 경기 결과에 따라 갈림
+  const fromId = opponentSide === "homeTeam" ? next.homeFromMatch : next.awayFromMatch;
+  const prevMatch = fromId ? bracket.find(m => m.id === fromId) : undefined;
+
+  let candidates: OpponentCandidate[] = [];
+  if (prevMatch?.homeTeam && prevMatch.awayTeam) {
+    const probs = eloToProbs(getElo(prevMatch.homeTeam), getElo(prevMatch.awayTeam));
+    const homeWin = Math.round((probs.homeWin + probs.draw * 0.5) * 100);
+    candidates = [
+      { teamCode: prevMatch.homeTeam, prob: homeWin, fromMatchId: prevMatch.id },
+      { teamCode: prevMatch.awayTeam, prob: 100 - homeWin, fromMatchId: prevMatch.id },
+    ];
+  }
+
+  return {
+    inBracket: true,
+    nextMatch: { id: next.id, round: next.round, date: next.date, opponent: null, candidates },
+  };
 }

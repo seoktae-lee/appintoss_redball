@@ -5,7 +5,9 @@ import { calcAllGroupStandings, getThirdPlaceTable, isTeamQualified } from "../s
 import { calcQualificationProbability } from "../services/probability";
 import { calcScenarios } from "../services/scenarios";
 import { calcBingo } from "../services/bingo";
-import { calcTournamentOdds } from "../services/tournament";
+import { calcTournamentOdds, getNextMatchScenario } from "../services/tournament";
+import { syncBracketFromAPI, applyBracketMatchResult } from "../services/bracketSync";
+import { calcKnockoutWatchPoint } from "../services/knockoutScenarios";
 import { loadMatches, saveCachedProbability, loadCachedProbability, loadBracket, saveBracket, loadCachedTournamentOdds, saveCachedTournamentOdds, getUserPrediction, saveUserPrediction } from "../db";
 import { authMiddleware, AuthRequest } from "../middleware/auth";
 
@@ -125,44 +127,34 @@ router.post("/admin/init-matches", (req, res) => {
 
 // ── 노크아웃 브라켓 ──
 
-// 전체 브라켓 조회
-router.get("/bracket", (_req: Request, res: Response) => {
+// 전체 브라켓 조회 — 32강 이후 결과를 외부 API에서 자동 동기화한 뒤 응답
+router.get("/bracket", async (_req: Request, res: Response) => {
+  await syncBracketFromAPI();
   const bracket = loadBracket();
-  res.json({ bracket, teams: TEAMS });
+  const bracketWithInsight = bracket.map(m => ({
+    ...m,
+    watchPoint: m.homeTeam && m.awayTeam ? calcKnockoutWatchPoint(m, m.homeTeam, m.awayTeam) : undefined,
+  }));
+  res.json({ bracket: bracketWithInsight, teams: TEAMS });
 });
 
-// 어드민: 브라켓 경기 결과 수동 입력
+// 어드민: 브라켓 경기 결과 수동 입력 (API 연동 전이거나 결과 보정용)
 router.post("/admin/bracket-match", (req: Request, res: Response): void => {
   const { id, homeTeam, awayTeam, homeScore, awayScore, status } = req.body;
   const bracket = loadBracket();
-  const idx = bracket.findIndex(m => m.id === id);
-  if (idx === -1) { res.status(404).json({ error: "경기를 찾을 수 없음" }); return; }
-
-  if (homeTeam !== undefined) bracket[idx].homeTeam = homeTeam;
-  if (awayTeam !== undefined) bracket[idx].awayTeam = awayTeam;
-  if (homeScore !== undefined) bracket[idx].homeScore = homeScore;
-  if (awayScore !== undefined) bracket[idx].awayScore = awayScore;
-  if (status) bracket[idx].status = status;
+  const applied = applyBracketMatchResult(bracket, id, { homeTeam, awayTeam, homeScore, awayScore, status });
+  if (!applied) { res.status(404).json({ error: "경기를 찾을 수 없음" }); return; }
 
   saveBracket(bracket);
-  // 이전 라운드 통과자를 다음 라운드로 자동 전파
-  if (bracket[idx].status === "FINISHED" && bracket[idx].homeScore !== null && bracket[idx].awayScore !== null) {
-    const winner = bracket[idx].homeScore! > bracket[idx].awayScore!
-      ? bracket[idx].homeTeam : bracket[idx].awayTeam;
-    for (const m of bracket) {
-      if (m.homeFromMatch === id && !m.homeTeam) { m.homeTeam = winner; }
-      if (m.awayFromMatch === id && !m.awayTeam) { m.awayTeam = winner; }
-    }
-    saveBracket(bracket);
-    // 캐시 무효화
-    saveCachedTournamentOdds({ odds: [], calculatedAt: "0" });
+  if (status === "FINISHED") {
+    saveCachedTournamentOdds({ odds: [], calculatedAt: "0" }); // 캐시 무효화
   }
-
   res.json({ ok: true });
 });
 
 // 토너먼트 우승 확률 (5분 캐시)
-router.get("/tournament-odds", (_req: Request, res: Response) => {
+router.get("/tournament-odds", async (_req: Request, res: Response) => {
+  await syncBracketFromAPI();
   const cached = loadCachedTournamentOdds();
   if (cached && cached.calculatedAt !== "0" && Date.now() - new Date(cached.calculatedAt).getTime() < 5 * 60_000) {
     return res.json({ odds: cached.odds, teams: TEAMS, calculatedAt: cached.calculatedAt });
@@ -172,6 +164,20 @@ router.get("/tournament-odds", (_req: Request, res: Response) => {
   const now = new Date().toISOString();
   saveCachedTournamentOdds({ odds, calculatedAt: now });
   res.json({ odds, teams: TEAMS, calculatedAt: now });
+});
+
+// "경우의 수" — 내 팀이 다음 라운드에서 만날 수 있는 상대 + 우승까지의 시뮬레이션 경로
+router.get("/path", async (req: Request, res: Response): Promise<void> => {
+  const teamCode = ((req.query.team as string) || "").toUpperCase();
+  if (!TEAMS[teamCode]) { res.status(400).json({ error: "존재하지 않는 팀 코드예요." }); return; }
+
+  await syncBracketFromAPI();
+  const bracket = loadBracket();
+  const scenario = getNextMatchScenario(bracket, teamCode);
+  const odds = calcTournamentOdds(bracket, 20000);
+  const myOdds = odds.find(o => o.teamCode === teamCode) || null;
+
+  res.json({ teams: TEAMS, scenario, odds: myOdds, samples: 20000 });
 });
 
 // ── 유저 예측 ──

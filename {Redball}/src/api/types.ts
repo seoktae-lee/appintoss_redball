@@ -88,6 +88,13 @@ export interface TeamsResponse {
   groups: Record<string, string[]>;
 }
 
+export interface KnockoutWatchPoint {
+  probabilities: { homeWin: number; draw: number; awayWin: number };
+  elo: { home: number; away: number };
+  headline: string;
+  points: string[];
+}
+
 export interface KnockoutMatch {
   id: string;
   round: "R32" | "R16" | "QF" | "SF" | "F";
@@ -101,11 +108,37 @@ export interface KnockoutMatch {
   date: string;
   homeFromMatch: string | null;
   awayFromMatch: string | null;
+  watchPoint?: KnockoutWatchPoint;
 }
 
 export interface BracketResponse {
   bracket: KnockoutMatch[];
   teams: Record<string, Team>;
+}
+
+export interface OpponentCandidate {
+  teamCode: string;
+  prob: number;
+  fromMatchId: string;
+}
+
+export interface NextMatchScenario {
+  inBracket: boolean;
+  eliminated?: { round: KnockoutMatch["round"]; opponent: string; homeScore: number; awayScore: number };
+  nextMatch?: {
+    id: string;
+    round: KnockoutMatch["round"];
+    date: string;
+    opponent: string | null;
+    candidates: OpponentCandidate[];
+  };
+}
+
+export interface TeamPathResponse {
+  teams: Record<string, Team>;
+  scenario: NextMatchScenario;
+  odds: TeamTournamentOdds | null;
+  samples: number;
 }
 
 export interface TeamTournamentOdds {

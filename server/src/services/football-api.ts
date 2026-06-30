@@ -1,10 +1,33 @@
 import { type MatchResult } from "../data/worldcup2026";
+import { type KnockoutMatch } from "../data/knockout2026";
 
 const API_BASE = "https://api.football-data.org/v4";
 const API_KEY = process.env.FOOTBALL_API_KEY || "";
 const COMPETITION_ID = process.env.WC_COMPETITION_ID || "2000";
 
-let cachedMatches: MatchResult[] | null = null;
+// 32강부터는 API의 stage 값이 시점/버전에 따라 다를 수 있어 후보를 넓게 잡는다.
+// 실제 키 연결 후 매칭이 안 되는 stage가 보이면 여기에 추가하면 된다.
+const STAGE_TO_ROUND: Record<string, KnockoutMatch["round"]> = {
+  LAST_32: "R32", ROUND_OF_32: "R32",
+  LAST_16: "R16", ROUND_OF_16: "R16",
+  QUARTER_FINALS: "QF", QUARTERFINALS: "QF",
+  SEMI_FINALS: "SF", SEMIFINALS: "SF",
+  FINAL: "F",
+};
+
+export interface APIKnockoutMatch {
+  apiId: string;
+  round: KnockoutMatch["round"];
+  date: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  status: MatchResult["status"];
+  minute?: string;
+}
+
+let cachedRaw: any[] | null = null;
 let lastFetch = 0;
 const CACHE_TTL = 60_000; // 1 min
 
@@ -30,14 +53,23 @@ function mapStatus(apiStatus: string): MatchResult["status"] {
   }
 }
 
-export async function fetchMatches(): Promise<MatchResult[] | null> {
+async function fetchAllRaw(): Promise<any[] | null> {
   const now = Date.now();
-  if (cachedMatches && now - lastFetch < CACHE_TTL) return cachedMatches;
+  if (cachedRaw && now - lastFetch < CACHE_TTL) return cachedRaw;
 
   const data = await fetchFromAPI(`/competitions/${COMPETITION_ID}/matches`) as any;
-  if (!data?.matches) return cachedMatches;
+  if (!data?.matches) return cachedRaw;
 
-  const matches: MatchResult[] = (data.matches as any[])
+  cachedRaw = data.matches as any[];
+  lastFetch = now;
+  return cachedRaw;
+}
+
+export async function fetchMatches(): Promise<MatchResult[] | null> {
+  const raw = await fetchAllRaw();
+  if (!raw) return null;
+
+  return raw
     .filter((m: any) => m.stage === "GROUP_STAGE")
     .map((m: any) => ({
       id: String(m.id),
@@ -51,13 +83,43 @@ export async function fetchMatches(): Promise<MatchResult[] | null> {
       status: mapStatus(m.status),
       minute: m.minute ? String(m.minute) : undefined,
     }));
+}
 
-  cachedMatches = matches;
-  lastFetch = now;
-  return matches;
+// 32강 이후 경기 — round를 알 수 없는 stage는 건너뛴다 (알 수 없는 stage는 콘솔에 1회성 경고).
+const warnedStages = new Set<string>();
+
+export async function fetchKnockoutMatches(): Promise<APIKnockoutMatch[] | null> {
+  const raw = await fetchAllRaw();
+  if (!raw) return null;
+
+  const result: APIKnockoutMatch[] = [];
+  for (const m of raw) {
+    if (m.stage === "GROUP_STAGE") continue;
+    const round = STAGE_TO_ROUND[m.stage];
+    if (!round) {
+      if (!warnedStages.has(m.stage)) {
+        warnedStages.add(m.stage);
+        console.warn(`[football-api] 매핑되지 않은 stage: ${m.stage} — STAGE_TO_ROUND에 추가 필요`);
+      }
+      continue;
+    }
+    if (!m.homeTeam?.tla || !m.awayTeam?.tla) continue; // 아직 대진 미확정
+    result.push({
+      apiId: String(m.id),
+      round,
+      date: m.utcDate,
+      homeTeam: m.homeTeam.tla,
+      awayTeam: m.awayTeam.tla,
+      homeScore: m.score?.fullTime?.home ?? null,
+      awayScore: m.score?.fullTime?.away ?? null,
+      status: mapStatus(m.status),
+      minute: m.minute ? String(m.minute) : undefined,
+    });
+  }
+  return result;
 }
 
 export function clearCache() {
-  cachedMatches = null;
+  cachedRaw = null;
   lastFetch = 0;
 }
